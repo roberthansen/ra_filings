@@ -369,11 +369,11 @@ class kiteworks_scraper:
                             email_subject = '[no subject found]'
                             email_sender = '[unknown sender]'
                         # check email subject against include email filter list:
-                        if len(self.email_filter['include']) > 0:
+                        if isinstance(self.email_filter['include'],list):
                             include = reduce(lambda x,y:x|y,[s in email_subject.lower() for s in self.email_filter['include']],False)
                         else:
                             include = True
-                        if len(self.email_filter['exclude']) > 0:
+                        if isinstance(self.email_filter['exclude'],list):
                             exclude = reduce(lambda x,y:x|y,[s in email_subject.lower() for s in self.email_filter['exclude']],False)
                         else:
                             exclude = False
