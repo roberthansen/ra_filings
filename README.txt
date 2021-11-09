@@ -1,6 +1,6 @@
 Resource Adequacy Monthly/Annual Report Collector
 
-2021-11-05
+2021-11-09
 California Public Utilities Commission
 Robert Hansen, PE
 
