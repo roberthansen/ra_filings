@@ -4,28 +4,34 @@ Resource Adequacy Monthly/Annual Report Collector
 California Public Utilities Commission
 Robert Hansen, PE
 
+
 Introduction:
-The Resource Adequacy Monthly/Annual Report Collector tool consists of three
+The Resource Adequacy Monthly/Annual Report Collector tool consists of four
 Python scripts and two configuration files:
   Scripts:
     + ra_reports.py
     + kiteworks_scraper.py
     + ra_report_organizer.py
+    + logger.py
   Configuration Files:
-    + ra_reports.config
-    + lse_map.csv
-An additional file with login information is written in Python and consists
-of a single dictionary containing a user id and password for accessing
+    + ra_reports_config.yaml
+    + lse_map.yaml
+    + email_filter.yaml
+
+The sections following discuss the usage of each of these components of the
+tool. See comments within the scripts for additional information.
+
+Finally, an additional file with login information is written in Python and
+consists of a single dictionary containing a user id and password for accessing
 Kiteworks. This information may be entered into the command line as an
 alternative.
 
-The following sections discuss the usage of each of these components of the
-tool. See comments within the scripts for additional information.
 
-Configuration File:
+Configuration File (ra_reports_config.yaml):
 Using the tool involves setting up the configuration files as desired, and
-running the ra_reports.py script. The ra_reports.config file is a plain text
-file containing several parameters that define the python scripts' behavior:
+running the ra_reports.py script. The ra_reports_config.yaml file is a text
+file written in the YAML Ain't a Markup Language (YAML), and contains several
+parameters that define the python scripts' behavior:
   lse_map_file -- The location of the lse map file, such as
       C:\Users\Myself\ResourceAdequacy\lse_map.csv
   filename_template -- A template for renaming reports based on their contents.
@@ -62,15 +68,36 @@ file containing several parameters that define the python scripts' behavior:
   file_logging_criticalities - a list of log criticality levels which will be
       recorded in the log file.
 
-Load Serving Entity Map:
+As a YAML file, the configuration settings can be edited with any text editor.
+Note that settings specifying a path such as a directory or filename including
+filename_template must be enclosed in single quotation marks. Other settings
+should not have quotation marks. See the YAML specification for more
+information : https://yaml.org/spec/1.2.2/
+
+
+Load Serving Entity Map (lse_map.yaml):
 Load Serving Entities (LSEs) are responsible for submitting monthly reports,
 and their name is included in the Certification sheet of their report files.
-The lse_map.csv is a table of known spellings of LSE names and a brief
-abbreviation of their name potentially used in renaming the report file if
-specified in the filename_template. The table should be appended whenever a new
-LSE submits a report or a known LSE submits a report with a novel spelling of
-their name. As a .csv file, the table may be edited either in a spreadsheet
-editor, such as Excel, or using a text editor.
+The lse_map.yaml contains pairs of known spellings of LSE names with brief
+abbreviations of their name. The abbreviations are used in renaming the report
+files if specified in the filename_template. The table should be appended
+whenever a new LSE submits a report, or when a known LSE submits a report with
+a novel spelling of their name.
+
+The LSE map file can be edited using a text editor, similar to the
+configuration file. Any entries containing special characters (e.g.,
+:{}[],&*#?|-<>=!%@\ ) should be enclosed in quotation marks. See the YAML
+specification for more information : https://yaml.org/spec/1.2.2/
+
+Email Filter Keywords (email_filter.yaml):
+The webscraper can selectively download attachments only from emails according
+to a set of keywords specified in the email filter keywords file. This file
+contains two lists, one with keywords to include and one with keywords to
+exclude. The filter applies these keywords such that the webscraper will
+download attachments from emails containing any of the "include" keywords and
+not matching any of the "exclude" keywords. All keywords are case-insensitive
+but must otherwise match exactly, including spaces.
+
 
 Resource Adequacy Reports Script (ra_reports.py):
 This relatively simple script loads login information from a specified file and
@@ -78,11 +105,27 @@ initializes the other two scripts with the location of the configuration file.
 The following command runs the script:
   > python ra_reports.py
 
+
 Kiteworks Scraper (kiteworks_scraper.py):
 This script defines a class which reads the configuration file into its own
 variables and applies them when accessing the Kiteworks FTP email site through
 the specified browser. The class uses the Python Selenium library to interface
 with the browser's webdriver.
+
+The Kiteworks scraper logs into Kiteworks using given authentication
+information, then cycles through all unread emails checking subject lines
+against optional filter keywords specified and downloading all attachments from
+emails that pass the filter. Once all unread emails have been opened, the
+scraper exits.
+
+The configuration file allows a user to fine-tune the scraper according to
+their needs and performance. For instance, if certain Kiteworks pages take a
+long time to load, causing the scraper to checking emails, the
+browser_action_timer and browser_action_retries paramaters can be increased to
+allow a longer time between attempting actions such as clicking a button, or to
+allow more attempts at a given action before either returning to the inbox or
+exiting the scraper.
+
 
 Resource Adequacy Report Organizer (ra_report_organizer.py):
 This script reads through the entire contents of the temp_directory, first
@@ -90,6 +133,7 @@ decompressing any zip archives, then searching for files matching the Resource
 Adequacy Monthly/Annual Report template. Any matching files are copied to the
 report_directory and renamed according to the report's contents and the
 filename_template.
+
 
 Login Information (login.py):
 This Python file contains only a single dictionary with the following form,

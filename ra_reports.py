@@ -8,16 +8,14 @@ from login import login_information as li
 # Robert Hansen, PE
 
 # download and organize resource adequacy monthly/annual reports
-def ra_reports(config_file: Path):
+def ra_reports(configuration_path: Path):
     # download all attachments from unread emails in kiteworks:
-    kw = kiteworks_scraper(login_information = li)
-    kw.set_configuration_options(config_file)
+    kw = kiteworks_scraper(configuration_path = configuration_path,login_information = li)
     kw.retrieve_emails()
     
     # organize downloaded attachments into final report directory:
-    org = ra_report_organizer()
-    org.set_configuration_options(config_file)
+    org = ra_report_organizer(configuration_path = configuration_path)
     org.organize()
 
 if __name__=='__main__':
-    ra_reports(Path('C:/Users/rober/Documents/src/python/kiteworks_scraper/ra_reports.config'))
+    ra_reports(Path('C:/Users/rober/Documents/src/python/kiteworks_scraper/ra_reports_config.yaml'))

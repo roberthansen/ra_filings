@@ -1,0 +1,14 @@
+---
+lse_map_file: 'C:\Users\rober\Documents\src\python\kiteworks_scraper\lse_map.yaml'
+email_filter_file: 'C:\Users\rober\Documents\src\python\kiteworks_scraper\email_filter.yaml'
+filename_template: '[lse_full]_[yyyy]\MonthlyRAReport_[yyyy]-[mm]_[lse_abbrev].xlsx'
+temp_directory: 'C:\Users\rober\Documents\src\python\kiteworks_scraper\downloaded_attachments'
+report_directory: 'C:\Users\rober\Documents\src\python\kiteworks_scraper\RA_Reports'
+webdriver_directory: 'C:\Users\rober\Documents\src\python\kiteworks_scraper\webdrivers'
+browser: firefox
+browser_action_timer: 0.65
+browser_action_retries: 25
+log_file: 'C:\Users\rober\Documents\src\python\kiteworks_scraper\logs\ra_reports_retrieval.log'
+cli_logging_criticalities: ERROR,WARNING,INFORMATION
+file_logging_criticalities: ERROR
+...
