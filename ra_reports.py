@@ -14,8 +14,8 @@ def ra_reports(configuration_path: Path):
     kw.retrieve_emails()
     
     # organize downloaded attachments into final report directory:
-    org = ra_report_organizer(configuration_path = configuration_path)
-    org.organize()
+    #org = ra_report_organizer(configuration_path = configuration_path)
+    #org.organize()
 
 if __name__=='__main__':
     ra_reports(Path('C:/Users/rober/Documents/src/python/kiteworks_scraper/ra_reports_config.yaml'))

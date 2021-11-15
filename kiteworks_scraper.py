@@ -24,6 +24,7 @@ class kiteworks_scraper:
             'temp_directory' : Path.cwd(),
             'webdriver_directory' : Path.cwd(),
             'browser' : 'firefox',
+            'browser' : 'no',
             'browser_action_timer' : 1.0,
             'browser_action_retries' : 5,
             'log_file' : Path.cwd() / 'download_organizer.log',
@@ -47,6 +48,10 @@ class kiteworks_scraper:
                 d = safe_load(f)
                 for key in d.keys():
                     value = d[key]
+                    if value is None:
+                        value = []
+                    else:
+                        pass
                     if key.lower() in ('include', 'exclude'):
                         self.email_filter[key.lower()] = [s.lower() for s in value]
                     else:
@@ -146,6 +151,10 @@ class kiteworks_scraper:
             driver_location = self.webdriver_directory / 'chromedriver.exe'
             ser = webdriver.chrome.service.Service(driver_location)
             opts = webdriver.ChromeOptions()
+            opts.add_experimental_option('prefs',{
+                'download.default_directory' : str(self.download_directory),
+            })
+            opts.add_extension()
         elif self.browser=='edge':
             driver_location = self.webdriver_directory / 'msedgedriver.exe'
             ser = webdriver.edge.service.Service(driver_location)
@@ -154,14 +163,14 @@ class kiteworks_scraper:
             driver_location = self.webdriver_directory / 'geckodriver.exe'
             ser = webdriver.firefox.service.Service(driver_location)
             opts = webdriver.FirefoxOptions()
-        opts.set_preference('browser.download.panel.shown',False)
-        opts.set_preference('browser.helperApps.neverAsk.saveToDisk',';'.join(mime_types))
-        opts.set_preference('browser.helperApps.alwaysAsk.force',False)
-        opts.set_preference('browser.download.manager.showWhenStarting',False)
-        opts.set_preference('browser.download.folderList',2)
-        opts.set_preference('browser.download.dir',str(self.download_directory))
+            opts.set_preference('browser.download.panel.shown',False)
+            opts.set_preference('browser.helperApps.neverAsk.saveToDisk',';'.join(mime_types))
+            opts.set_preference('browser.helperApps.alwaysAsk.force',False)
+            opts.set_preference('browser.download.manager.showWhenStarting',False)
+            opts.set_preference('browser.download.folderList',2)
+            opts.set_preference('browser.download.dir',str(self.download_directory))
         if self.browser=='chrome':
-            driver = webdriver.Chrome(service=ser,options=opts)
+            driver = webdriver.Chrome(service=ser,chrome_options=opts)
         elif self.browser=='edge':
             driver = webdriver.Edge(service=ser,options=opts)
         elif self.browser=='firefox':

@@ -1,6 +1,6 @@
 Resource Adequacy Monthly/Annual Report Collector
 
-2021-11-09
+2021-11-05
 California Public Utilities Commission
 Robert Hansen, PE
 
@@ -30,7 +30,7 @@ alternative.
 Configuration File (ra_reports_config.yaml):
 Using the tool involves setting up the configuration files as desired, and
 running the ra_reports.py script. The ra_reports_config.yaml file is a text
-file written in the YAML Ain't a Markup Language (YAML), and contains several
+file written in the YAML Ain't Markup Language (YAML), and contains several
 parameters that define the python scripts' behavior:
   lse_map_file -- The location of the lse map file, such as
       C:\Users\Myself\ResourceAdequacy\lse_map.csv
