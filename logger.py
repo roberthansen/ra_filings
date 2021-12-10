@@ -56,11 +56,11 @@ class logger:
     # set criticality levels at which messages will be reported to the command line
     # interface:
     def set_cli_logging_criticalities(self,l: list):
-        self.cli_logging_criticalities = reduce(lambda a,b:a|b,[self.criticalities[s] if s in self.criticalities.keys() else 0 for s in l],0b111)
+        self.cli_logging_criticalities = reduce(lambda a,b:a|b,[self.criticalities[s] if s in self.criticalities.keys() else 0 for s in l],0b000)
 
     # set criticality levels at which messages will be saved to the log file:
     def set_file_logging_criticalities(self,l: list):
-        self.file_logging_criticalities = reduce(lambda a,b:a|b,[self.criticalities[s] if s in self.criticalities.keys() else 0 for s in l],0b111)
+        self.file_logging_criticalities = reduce(lambda a,b:a|b,[self.criticalities[s] if s in self.criticalities.keys() else 0 for s in l],0b000)
 
     # set the location to save the log file--the file created if it does not
     # exist, and is otherwise appended:

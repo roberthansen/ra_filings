@@ -1,122 +1,221 @@
+# INSTRUCTIONS: This file contains representations of each Load Serving Entity
+# (LSE). LSEs are identified by their standard abbreviation, followed by a
+# list of known aliases such the full name or alternative abbreviations. When
+# the ra_reports script detects the name given in a monthly report does not
+# match any known aliases, the alias should be added to the appropriate list.
+# Similarly, if and when a new LSE begins submitting reports, it should be
+# added as a new item with its own list of likely aliases.
 ---
-Pacific Gas & Electric: PGE
-Pacific Gas and Electric: PGE
-San Diego Gas & Electric: SDGE
-San Diego Gas and Electric: SDGE
-Southern California Edison: SCE
-3 Phases Energy Services: 3PR
-Commerce Energy, Inc. (1092): CEI
-Commerce Energy, Inc.: CEI
-Commerce Energy: CEI
-Commercial Energy of California: CES
-Constellation New Energy, Inc.: CNE
-Constellation New Energy: CNE
-Calpine PowerAmerica-CA, L.L.C. (1362): CPA
-Calpine PowerAmerica-CA: CPA
-Calpine PowerAmerica: CPA
-Direct Energy, L.L.C.: DEB
-Direct Energy: DEB
-EDF Industrial Power Services (CA), LLC: EIPS
-EDF Industrial Power Services, LLC: EIPS
-EDF Industrial Power Services LLC: EIPS
-EDF Industrial Power Services: EIPS
-Marin Energy Authority: MCE
-Marin Clean Energy: MCE
-Noble Americas Energy Solutions, LLC: NES
-Noble Americas Energy Solutions LLC: NES
-Noble Americas Energy Solutions: NES
-Pilot Power Group, Inc.: PPG
-Pilot Power Group Inc.: PPG
-Pilot Power Group: PPG
-Sonoma Clean Power: SOMA
-Shell Energy North America: SENA
-Tiger Natural Gas: TNG
-UC Office of the President: UCOP
-Lancaster Choice Energy: LCE
-Agera Energy: LAGRA
-Clean Power San Francisco: CPSF
-Peninsula Clean Energy Authority: PCEA
-American PowerNet Management: APN
-Silicon Valley Clean Energy: SVCEA
-Apple Valley Clean Energy: AVCE
-Redwood Coast Energy Authority: RCEA
-Pico Rivera Innovative Metropolitan Energy: PRIME
-City of Solana Beach: COSB
-Clean Power Alliance of Southern California: CPASC
-Desert Community Energy: DCE
-East Bay Community Energy: EBCE
-King City Community Power: KCCP
-Monterrey Bay Community Power Authority: MBCPA
-Pioneer Community Energy: PIONEER
-Rancho Mirage Energy Authority: RMEA
-San Jacinto Power: SJP
-San Jose Clean Energy: SJCE
-Valley Clean Energy Authority: VCEA
-Western Community Energy: WCE
-City of Baldwin Park: COBP
-Baldwin Park: COBP
-City of Commerce: COMMERCE
-Commerce: COMMERCE
-City of Hanford: HANFORD
-Hanford: HANFORD
-City of Palmdale: PALMDALE
-Palmdale: PALMDALE
-City of Pomona: POMONA
-Pomona: POMONA
-Butte Choice Energy: BCE
-City of Anaheim: ANHM
-Anaheim: ANHM
-Arizona Electric Power Cooperative, Inc.: AZCO
-Arizona Electric Power Cooperative: AZCO
-City of Azusa: AZUA
-Azusa: AZUA
-City of Banning: BAN1
-Banning: BAN1
-Bear Valley Electric Services: APXG
-California Department of Water Resources: CDWR
-CDWR: CDWR
-City of Industry: COIN
-Industry: COIN
-City of Cerritos: CRLC
-Cerritos: CRLC
-City of Colton: CLTN
-Colton: CLTN
-City of Corona Department of Water & Power: COR1
-Corona Department of Water & Power: COR1
-Corona: COR1
-Lathrop Irrigation District: LLATH
-Moreno Valley: SEMV
-Pasadena Water & Power: PASA
-Pasadena: PASA
-Port of Stockton: PSTN
-Rancho Cucamonga Municipal Utility: RCMU
-Riverside Public Utility: RVSD
-Riverside: RVSD
-City and County of San Francisco: CCSF
-San Francisco: CCSF
-WAPA - WSLW: WSLW
-WSLW: WSLW
-WAPA - WDOE: WDOE
-WDOE: WDOE
-WAPA - WFLS: WFLS
-WFLS: WFLS
-WAPA - WNAS: WNAS
-WNAS: WNAS
-WAPA - WPUL: WPUL
-WPUL: WPUL
-Eastside Power Authority: WEPA
-Power and Water Resources Pooling Authority: PWPA
-City of Vernon: VERN
-Vernon: VERN
-City of Victorville: SEEV
-Victorville: SEEV
-NCPA: NCPA
-Silicon Valley Power: SNCL
-Valley Electric Association: VBOB
-Kirkwood Meadows: KIRK
-Kirkwood: KIRK
-Bay Area Rapid Transit: LBART
-Metropolitan Water District: LMWSC
-Pechanga Tribal Utility: LPECH
-Pechanga: LPECH
+PGE:
+  - Pacific Gas & Electric
+  - Pacific Gas & Electric Company
+  - Pacific Gas and Electric
+  - Pacific Gas and Electric Company
+SDGE:
+  - San Diego Gas & Electric
+  - San Diego Gas & Electric Company
+  - San Diego Gas and Electric
+  - San Diego Gas and Electric Company
+SCE:
+  - Southern California Edison
+3PR:
+  - 3 Phases Energy Services
+  - 3 Phases Renewables Inc
+CEI:
+  - Commerce Energy, Inc. (1092)
+  - Commerce Energy, Inc.
+  - Commerce Energy
+CES:
+  - Commercial Energy of California
+CNE:
+  - Constellation New Energy, Inc.
+  - Constellation New Energy
+CPA:
+  - Calpine PowerAmerica-CA, L.L.C. (1362)
+  - Calpine PowerAmerica-CA
+  - Calpine PowerAmerica
+DEB:
+  - Direct Energy, L.L.C.
+  - Direct Energy
+EIPS:
+  - EDF Industrial Power Services (CA), LLC
+  - EDF Industrial Power Services, LLC
+  - EDF Industrial Power Services LLC
+  - EDF Industrial Power Services
+MCE:
+  - Marin Energy Authority
+  - Marin Clean Energy
+NES:
+  - Noble Americas Energy Solutions, LLC
+  - Noble Americas Energy Solutions LLC
+  - Noble Americas Energy Solutions
+PPG:
+  - Pilot Power Group, Inc.
+  - Pilot Power Group Inc.
+  - Pilot Power Group
+SOMA:
+  - Sonoma Clean Power
+SEN:
+  - Shell Energy North America
+TNG:
+  - Tiger Natural Gas
+UCOP:
+  - UC Office of the President
+LCE:
+  - Lancaster Choice Energy
+LAGRA:
+  - Agera Energy
+CPSF:
+  - Clean Power San Francisco
+PCEA:
+  - Peninsula Clean Energy Authority
+APN:
+  - American PowerNet Management
+SVCEA:
+  - Silicon Valley Clean Energy
+AVCE:
+  - Apple Valley Clean Energy
+RCEA:
+  - Redwood Coast Energy Authority
+PRIME:
+  - Pico Rivera Innovative Metropolitan Energy
+COSB:
+  - City of Solana Beach
+CPASC:
+  - Clean Power Alliance of Southern California
+DCE:
+  - Desert Community Energy
+EBCE:
+  - East Bay Community Energy
+KCCP:
+  - King City Community Power
+MBCPA:
+  - Monterrey Bay Community Power Authority
+PIONEER:
+  - Pioneer Community Energy
+RMEA:
+  - Rancho Mirage Energy Authority
+SJP:
+  - San Jacinto Power
+SJCE:
+  - San Jose Clean Energy
+VCEA:
+  - Valley Clean Energy Authority
+WCE:
+  - Western Community Energy
+COBP:
+  - City of Baldwin Park
+  - Baldwin Park
+COMMERCE:
+  - City of Commerce
+  - Commerce
+HANFORD:
+  - City of Hanford
+  - Hanford
+PALMDALE:
+  - City of Palmdale
+  - Palmdale
+POMONA:
+  - City of Pomona
+  - Pomona
+BCE:
+  - Butte Choice Energy
+ANHM:
+  - City of Anaheim
+  - Anaheim
+AZCO:
+  - Arizona Electric Power Cooperative, Inc.
+  - Arizona Electric Power Cooperative
+AZUA:
+  - City of Azusa
+  - Azusa
+BAN1:
+  - City of Banning
+  - Banning
+APXG:
+  - Bear Valley Electric Services
+CDWR:
+  - California Department of Water Resources
+  - CDWR
+CEA:
+  - Clean Energy Alliance
+COIN:
+  - City of Industry
+  - Industry
+CRLC:
+  - City of Cerritos
+  - Cerritos
+CLTN:
+  - City of Colton
+  - Colton
+COR1:
+  - City of Corona Department of Water & Power
+  - Corona Department of Water & Power
+  - Corona
+LLATH:
+  - Lathrop Irrigation District
+SEMV:
+  - Moreno Valley
+PASA:
+  - Pasadena Water & Power
+  - Pasadena
+PSTN:
+  - Port of Stockton
+RCMU:
+  - Rancho Cucamonga Municipal Utility
+RVSD:
+  - Riverside Public Utility
+RVSD:
+  - Riverside
+SBCE:
+  - Santa Barbara Clean Energy
+SDCP:
+  - San Diego Clean Power
+CCSF:
+  - City and County of San Francisco
+CCSF:
+  - San Francisco
+WSLW:
+  - WAPA - WSLW
+WSLW:
+  - WSLW
+WDOE:
+  - WAPA - WDOE
+  - WDOE
+WFLS:
+  - WAPA - WFLS
+  - WFLS
+WNAS:
+  - WAPA - WNAS
+  - WNAS
+WPUL:
+  - WAPA - WPUL
+  - WPUL
+WEPA:
+  - Eastside Power Authority
+PWPA:
+  - Power and Water Resources Pooling Authority
+VERN:
+  - City of Vernon
+VERN:
+  - Vernon
+SEEV:
+  - City of Victorville
+  - Victorville
+NCPA:
+  - NCPA
+SNCL:
+  - Silicon Valley Power
+VBOB:
+  - Valley Electric Association
+KIRK:
+  - Kirkwood Meadows
+  - Kirkwood
+LBART:
+  - Bay Area Rapid Transit
+LMWSC:
+  - Metropolitan Water District
+LPECH:
+  - Pechanga Tribal Utility
+  - Pechanga
 ...

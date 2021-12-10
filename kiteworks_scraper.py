@@ -18,7 +18,7 @@ class kiteworks_scraper:
     site_url = 'https://kwftp.cpuc.ca.gov'
 
     # initialize object:
-    def __init__(self,configuration_path: Path=Path.cwd()/'config.txt',login_information: dict=dict()):
+    def __init__(self,configuration_path: Path=Path.cwd()/'config.txt',user: dict=dict()):
         self.configuration_options = {
             'email_filter_file' : Path.cwd(),
             'temp_directory' : Path.cwd(),
@@ -33,7 +33,7 @@ class kiteworks_scraper:
         }
         self.logger = logger()
         self.set_configuration_options(configuration_path)
-        self.set_login_information(login_information)
+        self.set_user(user)
 
     # set email filter keywords:
     def set_email_filter(self,p: Path=Path.cwd()):
@@ -72,13 +72,13 @@ class kiteworks_scraper:
             self.logger.log('Specified Download Directory Not Found, Using {}'.format(Path.cwd()),'WARNING')
 
     # set object property with dict containing a user id and password for kiteworks:
-    def set_login_information(self,login_information:dict=dict()):
-        self.login_information = dict()
-        if login_information:
-            self.login_information = login_information
+    def set_user(self,user:dict=dict()):
+        self.user = dict()
+        if user:
+            self.user = user
         else:
-            self.login_information['uid'] = input('3-Digit CPUC ID: ')
-            self.login_information['passwd'] = getpass.getpass(prompt='CPUC Password: ')
+            self.user['uid'] = input('3-Digit CPUC ID: ')
+            self.user['passwd'] = getpass.getpass(prompt='CPUC Password: ')
 
     # set browser to use:
     def set_browser(self,browser='firefox'):
@@ -179,8 +179,8 @@ class kiteworks_scraper:
 
     # log into kiteworks and retrieve attachments to all unread emails:
     def retrieve_emails(self):
-        if self.login_information['uid']=='':
-            self.set_login_information()
+        if self.user['uid']=='':
+            self.set_user()
         try:
             with self.webdriver() as driver:
                 driver.get(self.site_url)
@@ -219,7 +219,7 @@ class kiteworks_scraper:
                         retry_counter += 1
                         try:
                             self.logger.log('Entering User ID ...','INFORMATION')
-                            driver.find_element(By.ID,'email').send_keys(self.login_information['uid'])
+                            driver.find_element(By.ID,'email').send_keys(self.user['uid'])
                             retry_counter = 0
                             state = 1
                         except:
@@ -249,7 +249,7 @@ class kiteworks_scraper:
                         retry_counter += 1
                         try:
                             self.logger.log('Entering Password ...','INFORMATION')
-                            driver.find_element(By.ID,'password').send_keys(self.login_information['passwd'])
+                            driver.find_element(By.ID,'password').send_keys(self.user['passwd'])
                             retry_counter = 0
                             state = 3
                         except:
