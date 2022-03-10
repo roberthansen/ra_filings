@@ -1,0 +1,420 @@
+# INSTRUCTIONS: This file contains representations of each Load Serving Entity
+# (LSE). LSEs are identified by their standard abbreviation, followed by a
+# list of known aliases such the full name or alternative abbreviations. When
+# the ra_reports script detects the name given in a monthly report does not
+# match any known aliases, the alias should be added to the appropriate list.
+# Similarly, if and when a new LSE begins submitting reports, it should be
+# added as a new item with its own list of likely aliases.
+---
+CPUC:
+  type: regulatory agency
+  aliases:
+    - California Public Utilities Commission
+    - PUC
+CEC:
+  type: regulatory agency
+  aliases:
+    - California Energy Commission
+    - Energy Commission
+CAISO:
+  type: independent system operator
+  aliases:
+    - California Independent System Operator
+    - California ISO
+    - Independent System Operator
+    - ISO
+PGE:
+  type: investor-owned utility
+  aliases:
+    - Pacific Gas & Electric
+    - Pacific Gas & Electric Company
+    - Pacific Gas and Electric
+    - Pacific Gas and Electric Company
+SDGE:
+  type: investor-owned utility
+  aliases:
+    - San Diego Gas & Electric
+    - San Diego Gas & Electric Company
+    - San Diego Gas & Electric Co.
+    - San Diego Gas and Electric Co.
+    - San Diego Gas and Electric
+    - San Diego Gas and Electric Company
+SCE:
+  type: investor-owned utility
+  aliases:
+    - Southern California Edison
+    - SoCal Edison
+    - Edison
+3PR:
+  type: load-serving entity
+  aliases:
+    - 3 Phases Energy Services
+    - 3 Phases Renewables Inc
+ANHM:
+  type: load-serving entity
+  aliases:
+    - City of Anaheim
+    - Anaheim
+APN:
+  type: load-serving entity
+  aliases:
+    - American PowerNet Management
+APXG:
+  type: load-serving entity
+  aliases:
+    - Bear Valley Electric Services
+AVCE:
+  type: load-serving entity
+  aliases:
+    - Apple Valley Choice Energy
+    - Apple Valley Clean Energy
+AZCO:
+  type: load-serving entity
+  aliases:
+    - Arizona Electric Power Cooperative, Inc.
+    - Arizona Electric Power Cooperative
+AZUA:
+  type: load-serving entity
+  aliases:
+    - City of Azusa
+    - Azusa
+BAN1:
+  type: load-serving entity
+  aliases:
+    - City of Banning
+    - Banning
+BCE:
+  type: load-serving entity
+  aliases:
+    - Butte Choice Energy
+CCSF:
+  type: load-serving entity
+  aliases:
+    - City and County of San Francisco
+    - San Francisco
+CDWR:
+  type: load-serving entity
+  aliases:
+    - California Department of Water Resources
+    - CDWR
+CEA:
+  type: load-serving entity
+  aliases:
+    - Clean Energy Alliance
+    - The Clean Energy Alliance
+CEI:
+  type: load-serving entity
+  aliases:
+    - Commerce Energy, Inc. (1092)
+    - Commerce Energy, Inc.
+    - Commerce Energy
+CES:
+  type: load-serving entity
+  aliases:
+    - Commercial Energy of California
+    - Commercial Energy of Montana
+CLTN:
+  type: load-serving entity
+  aliases:
+    - City of Colton
+    - Colton
+CNE:
+  type: load-serving entity
+  aliases:
+    - Constellation New Energy, Inc.
+    - Constellation NewEnergy, Inc.
+    - Constellation New Energy
+COBP:
+  type: load-serving entity
+  aliases:
+    - City of Baldwin Park
+    - Baldwin Park
+    - Baldwin Park Resident Owned Utility District
+COIN:
+  type: load-serving entity
+  aliases:
+    - City of Industry
+    - Industry
+COMMERCE:
+  type: load-serving entity
+  aliases:
+    - City of Commerce
+    - Commerce
+COR1:
+  type: load-serving entity
+  aliases:
+    - City of Corona Department of Water & Power
+    - Corona Department of Water & Power
+    - Corona
+COSB:
+  type: load-serving entity
+  aliases:
+    - City of Solana Beach
+CPA:
+  type: load-serving entity
+  aliases:
+    - Calpine PowerAmerica-CA, L.L.C. (1362)
+    - Calpine PowerAmerica-CA, LLC
+    - Calpine PowerAmerica-CA
+    - Calpine PowerAmerica
+CPASC:
+  type: load-serving entity
+  aliases:
+    - Clean Power Alliance of Southern California
+CPSF:
+  type: load-serving entity
+  aliases:
+    - Clean Power San Francisco
+    - CleanPowerSF
+CRLC:
+  type: load-serving entity
+  aliases:
+    - City of Cerritos
+    - Cerritos
+DEB:
+  type: load-serving entity
+  aliases:
+    - Direct Energy, L.L.C.
+    - Direct Energy Business, LLC
+    - Direct Energy
+DCE:
+  type: load-serving entity
+  aliases:
+    - Desert Community Energy
+EBCE:
+  type: load-serving entity
+  aliases:
+    - East Bay Community Energy
+EIPS:
+  type: load-serving entity
+  aliases:
+    - EDF Industrial Power Services (CA), LLC
+    - EDF Industrial Power Services, LLC
+    - EDF Industrial Power Services LLC
+    - EDF Industrial Power Services
+HANFORD:
+  type: load-serving entity
+  aliases:
+    - City of Hanford
+    - Hanford
+KCCP:
+  type: load-serving entity
+  aliases:
+    - King City Community Power
+KIRK:
+  type: load-serving entity
+  aliases:
+    - Kirkwood Meadows
+    - Kirkwood
+LAGRA:
+  type: load-serving entity
+  aliases:
+    - Agera Energy
+LBART:
+  type: load-serving entity
+  aliases:
+    - Bay Area Rapid Transit
+LCE:
+  type: load-serving entity
+  aliases:
+    - Lancaster Choice Energy
+LLATH:
+  type: load-serving entity
+  aliases:
+    - Lathrop Irrigation District
+LMWSC:
+  type: load-serving entity
+  aliases:
+    - Metropolitan Water District
+LPECH:
+  type: load-serving entity
+  aliases:
+    - Pechanga Tribal Utility
+    - Pechanga
+MBCPA:
+  type: load-serving entity
+  aliases:
+    - Monterey Bay Community Power Authority
+    - Central Coast Community Energy
+MCE:
+  type: load-serving entity
+  aliases:
+    - Marin Energy Authority
+    - Marin Clean Energy
+NCPA:
+  type: load-serving entity
+  aliases:
+    - NCPA
+NES:
+  type: load-serving entity
+  aliases:
+    - Calpine Energy Solutions, LLC
+OCPA:
+  type: load-serving entity
+  aliases:
+    - Orange County Power Authority
+PALMDALE:
+  type: load-serving entity
+  aliases:
+    - City of Palmdale
+    - Palmdale
+PASA:
+  type: load-serving entity
+  aliases:
+    - Pasadena Water & Power
+    - Pasadena
+PCEA:
+  type: load-serving entity
+  aliases:
+    - Peninsula Clean Energy Authority
+PIONEER:
+  type: load-serving entity
+  aliases:
+    - Pioneer Community Energy
+POMONA:
+  type: load-serving entity
+  aliases:
+    - Pomona Choice Energy
+    - City of Pomona
+    - Pomona
+PPG:
+  type: load-serving entity
+  aliases:
+    - Pilot Power Group, Inc.
+    - Pilot Power Group Inc.
+    - Pilot Power Group
+    - PILOT POWER GROUP, LLC
+PRIME:
+  type: load-serving entity
+  aliases:
+    - Pico Rivera Innovative Municipal Energy
+    - Pico Rivera Innovative Metropolitan Energy
+PSTN:
+  type: load-serving entity
+  aliases:
+    - Port of Stockton
+PWPA:
+  type: load-serving entity
+  aliases:
+    - Power and Water Resources Pooling Authority
+RCEA:
+  type: load-serving entity
+  aliases:
+    - Redwood Coast Energy Authority
+RCMU:
+  type: load-serving entity
+  aliases:
+    - Rancho Cucamonga Municipal Utility
+RMEA:
+  type: load-serving entity
+  aliases:
+    - Rancho Mirage Energy Authority
+RVSD:
+  type: load-serving entity
+  aliases:
+    - Riverside Public Utility
+    - Riverside
+SBCE:
+  type: load-serving entity
+  aliases:
+    - Santa Barbara Clean Energy
+    - City of Santa Barbara d/b/a Santa Barbara Clean Energy
+SDCP:
+  type: load-serving entity
+  aliases:
+    - San Diego Community Power
+SEEV:
+  type: load-serving entity
+  aliases:
+    - City of Victorville
+    - Victorville
+SEMV:
+  type: load-serving entity
+  aliases:
+    - Moreno Valley
+SENA:
+  type: load-serving entity
+  aliases:
+    - Shell Energy North America
+    - SENA
+    - Shell Energy North America (US), L.P. d/b/a Shell Energy Solutions
+SJCE:
+  type: load-serving entity
+  aliases:
+    - San Jose Clean Energy
+SJP:
+  type: load-serving entity
+  aliases:
+    - San Jacinto Power
+SNCL:
+  type: load-serving entity
+  aliases:
+    - Silicon Valley Power
+SOMA:
+  type: load-serving entity
+  aliases:
+    - Sonoma Clean Power Authority
+    - Sonoma Clean Power
+SVCEA:
+  type: load-serving entity
+  aliases:
+    - Silicon Valley Clean Energy Authority
+    - Silicon Valley Clean Energy
+TNG:
+  type: load-serving entity
+  aliases:
+    - Tiger Natural Gas, Inc.
+    - Tiger Natural Gas
+    - Tiger  Natural Gas, Inc.
+UCOP:
+  type: load-serving entity
+  aliases:
+    - UC Office of the President
+    - The Regents of the University of California
+VCEA:
+  type: load-serving entity
+  aliases:
+    - Valley Clean Energy Alliance
+VERN:
+  type: load-serving entity
+  aliases:
+    - City of Vernon
+    - Vernon
+WCE:
+  type: load-serving entity
+  aliases:
+    - Western Community Energy
+WDOE:
+  type: load-serving entity
+  aliases:
+    - WAPA - WDOE
+    - WDOE
+WEPA:
+  type: load-serving entity
+  aliases:
+    - Eastside Power Authority
+WFLS:
+  type: load-serving entity
+  aliases:
+    - WAPA - WFLS
+    - WFLS
+WNAS:
+  type: load-serving entity
+  aliases:
+    - WAPA - WNAS
+    - WNAS
+WPUL:
+  type: load-serving entity
+  aliases:
+    - WAPA - WPUL
+    - WPUL
+WSLW:
+  type: load-serving entity
+  aliases:
+    - WAPA - WSLW
+    - WSLW
+VBOB:
+  type: load-serving entity
+  aliases:
+    - Valley Electric Association
+...

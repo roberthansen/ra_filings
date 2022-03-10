@@ -1,0 +1,33 @@
+---
+filing_month: mar 2022
+planning_reserve_margin: 0.15
+organizations_filename: 'M:\Users\RH2\src\ra_filings\config\organizations.yaml'
+email_filter_filename: 'M:\Users\RH2\src\ra_filings\config\email_filter.yaml'
+kiteworks_hostname: 'https://kwftp.cpuc.ca.gov'
+kiteworks_upload_folder: 'f1405d45-fe98-4ed2-9dfa-e12f6a226f1f'
+downloads_internal_directory: 'M:\Users\RH2\src\ra_filings\data\downloads\[yyyy]-[mm]\internal'
+downloads_external_directory: 'M:\Users\RH2\src\ra_filings\data\downloads\[yyyy]-[mm]\external'
+ra_monthly_filing_filename: 'M:\Users\RH2\src\ra_filings\data\filings\[yyyy]-[mm]\RAFiling_[yyyy]-[mm]_[organization_id]_rev[version].xlsx'
+month_ahead_filename: 'M:\Users\RH2\src\ra_filings\data\allocations\[yyyy]_MonthAheadForecastSummary_rev[version].xlsx'
+cam_rmr_filename: 'M:\Users\RH2\src\ra_filings\data\allocations\[yyyy]_CAM-RMR_rev[version].xlsx'
+year_ahead_filename: 'M:\Users\RH2\src\ra_filings\data\allocations\[yyyy]_YearAhead_rev[version].xlsx'
+incremental_local_filename: 'M:\Users\RH2\src\ra_filings\data\allocations\[yyyy]_IncrementalLocal_rev[version].xlsx'
+supply_plan_system_filename: 'M:\Users\RH2\src\ra_filings\data\supply_plans\[yyyy]-[mm]_CAISO_SupplyPlan_System_rev[version].xls'
+supply_plan_local_filename: 'M:\Users\RH2\src\ra_filings\data\supply_plans\[yyyy]-[mm]_CAISO_SupplyPlan_Local_rev[version].xls'
+ra_summary_filename: 'M:\Users\RH2\src\ra_filings\data\summaries\MA_RASummary_[yyyy]-[mm].xlsx'
+ra_summary_template_filename: 'M:\Users\RH2\src\ra_filings\data\templates\RASummary_template_[yyyy].xlsx'
+caiso_cross_check_filename: 'M:\Users\RH2\src\ra_filings\data\summaries\RA_CAISO_SupplyPlan_CrossCheck_[yyyy]-[mm].xlsx'
+caiso_cross_check_template_filename: 'M:\Users\RH2\src\ra_filings\data\templates\RA_CAISO_SupplyPlan_Crosscheck_template.xlsx'
+results_archive_filename: 'M:\Users\RH2\src\ra_filings\data\archives\RAFilings_[yyyy]-[mm].zip'
+webdriver_directory: 'M:\Users\RH2\src\ra_filings\scripts\webdrivers'
+browser: firefox
+browser_action_timer: 1.50
+browser_action_retries: 10
+browser_headless: yes
+log_filename: 'M:\Users\RH2\src\ra_filings\logs\ra_filings_[yyyy]-[mm].log'
+cli_logging_criticalities: ERROR,WARNING,INFORMATION
+file_logging_criticalities: ERROR,WARNING
+email_log_filename: 'M:\Users\RH2\src\ra_filings\logs\ra_filings_emails.csv'
+attachment_log_filename: 'M:\Users\RH2\src\ra_filings\logs\ra_filings_attachments.csv'
+consolidation_log_filename: 'M:\Users\RH2\src\ra_filings\logs\ra_filings_consolidation_[yyyy]-[mm].csv'
+...
