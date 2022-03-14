@@ -1,6 +1,7 @@
+import re
 import pandas as pd
 from pathlib import Path
-from datetime import datetime as dt
+from pandas import Timestamp as ts
 from functools import reduce
 
 # 2021-11-04
@@ -65,8 +66,8 @@ class TextLogger:
                 print('{}: {}'.format(criticality,message))
             if self.file_logging_criticalities & self.criticalities[criticality]:
                 with open(self.log_path,'a') as f:
-                    t = dt.now().isoformat()
-                    entry = '{}{}{}{}{}\n'.format(t,self.delimiter,criticality,self.delimiter,message)
+                    t = ts.now()
+                    entry = '{}{}{}{}{}\n'.format(t.strftime('%Y-%m-%d %H:%M:%S.%f'),self.delimiter,criticality,self.delimiter,message)
                     f.write(entry)
 
     def set_cli_logging_criticalities(self,criticalities:list):
@@ -107,6 +108,14 @@ class TextLogger:
         except:
             self.set_file_logging_criticalities([])
             self.log_path = Path.cwd() / 'default.log'
+    
+    def clear_log(self):
+        '''
+        Purges all data from the consolidation log.
+        '''
+        with self.log_path.open('w') as f:
+            f.write('')
+
 
 class DataLogger:
     '''
@@ -115,7 +124,7 @@ class DataLogger:
     internally as a pandas dataframe, which is saved to file upon request.
     '''
     # initialize logger class object:
-    def __init__(self,columns:list,log_path:Path=Path.cwd()/'default.csv',delimiter:str='\t'):
+    def __init__(self,dtypes:dict=dict(),log_path:Path=Path.cwd()/'default.csv',delimiter:str='\t'):
         '''
         initializes an instance of the data_logger class. if the file specified
         in log_path exists, it is checked for data and, if data exists and the
@@ -124,13 +133,13 @@ class DataLogger:
         initialized.
 
         parameters:
+            columns - list of columns
             log_path - path object pointing to the file to which data will be logged
             delimiter - delimiter to use when logging data
         '''
-        self.columns = ['log_timestamp'] + columns
-        self.set_log_path(log_path)
+        self.dtypes = {column:dtype for column,dtype in [('log_timestamp','datetime64[us]')]+list(dtypes.items())}
         self.set_delimiter(delimiter)
-
+        self.set_log_path(log_path)
     def log(self,data:pd.Series):
         '''
         appends a single row of input data to the dataframe.
@@ -138,33 +147,31 @@ class DataLogger:
         parameters:
             data - a pandas series containing data to include in the log
         '''
-        data['log_timestamp'] = dt.now()
+        data['log_timestamp'] = ts.now()
         self.data = self.data.append(data,ignore_index=True)
-    
     def commit(self):
         '''
         writes the log dataframe to file.
         '''
-        self.data.to_csv(self.log_path,sep=self.delimiter,index=False)
-    
+        columns = list(self.dtypes.keys())
+        self.data.loc[:,columns].sort_values('log_timestamp').to_csv(self.log_path,sep=self.delimiter,index=False)
     def load_log(self):
         '''
         checks the log file against the current list of columns and either
         loads the data or initializes a new dataframe.
         '''
         if self.log_path.is_file():
-            file_data = pd.read_csv(self.log_path)
-            if all([column in file_data.columns for column in self.columns]):
-                self.columns = list(filter(lambda s: s!='log_timestamp',file_data.columns))
-                self.data = file_data
+            dtypes = {column:dtype for column,dtype in filter(lambda x: not re.match('datetime.*',x[1]),self.dtypes.items())}
+            parse_dates = list(filter(lambda k: re.match('datetime.*',self.dtypes[k]),self.dtypes.keys()))
+            file_data = pd.read_csv(self.log_path,dtype=dtypes,parse_dates=parse_dates,delimiter=self.delimiter)
+            if all([column in file_data.columns for column in self.dtypes.keys()]):
+                for date_column in parse_dates:
+                    file_data.loc[:,date_column] = file_data.loc[:,date_column].astype(self.dtypes[date_column])
+                self.data = file_data[self.dtypes.keys()]
             else:
-                self.data = pd.DataFrame(columns=self.columns)
+                self.data = pd.DataFrame({column:pd.Series(dtype=dtype) for column,dtype in self.dtypes.items()})
         else:
-            self.data = pd.DataFrame(columns=self.columns)
-        
-
-    # set the location to save the log file--the file is created if it does
-    # not already exist, and is otherwise overwritten:
+            self.data = pd.DataFrame({column:pd.Series(dtype=dtype) for column,dtype in self.dtypes.items()})
     def set_log_path(self,log_path:Path):
         '''
         sets the path of the file to which messages will be logged according to
@@ -176,7 +183,6 @@ class DataLogger:
         self.log_path = log_path
         self.log_path.parent.mkdir(parents=True,exist_ok=True)
         self.load_log()
-
     def set_delimiter(self,delimiter:str):
         '''
         set the delimiter between sections of a message when saving to the log
@@ -186,3 +192,78 @@ class DataLogger:
                 each section of messages when written to the log file
         '''
         self.delimiter=delimiter
+    def clear_log(self):
+        '''
+        Purges all data from the consolidation log.
+        '''
+        self.data = pd.DataFrame(columns=list(self.dtypes.keys()))
+        self.commit()
+
+class EmailLogger(DataLogger):
+    '''
+    a data logger for tracking kiteworks emails from which attachments are
+    downloaded.
+    '''
+    def __init__(self,log_path:Path):
+        email_log_dtypes = {
+            'email_id' : 'string',
+            'sender' : 'string',
+            'subject' : 'string',
+            'receipt_date' : 'datetime64[s]',
+            'included' : 'bool',
+            'group' : 'string',
+        }
+        super().__init__(
+            dtypes=email_log_dtypes,
+            log_path=log_path,
+            delimiter=',',
+        )
+        self.data.loc[:,'receipt_date'] = self.data.loc[:,'receipt_date']
+
+class AttachmentLogger(DataLogger):
+    '''
+    a data logger for tracking attachments downloaded from kiteworks.
+    '''
+    def __init__(self,log_path:Path):
+        attachment_log_dtypes = {
+            'email_id' : 'string',
+            'attachment_id' : 'string',
+            'download_path' : 'string',
+            'ra_category' : 'string',
+            'organization_id' : 'string',
+            'effective_date' : 'datetime64[D]',
+            'archive_path' : 'string',
+        }
+        super().__init__(
+            dtypes=attachment_log_dtypes,
+            log_path=log_path,
+            delimiter=',',
+        )
+    def reset_validations(self):
+        '''
+        Clears validation data from the attachment log.
+        '''
+        self.data.loc[:,'ra_category'] = 'not_validated'
+        self.data.loc[:,['organization_id','archive_path']]=''
+        self.data.loc[:,'effective_date']=None
+        self.commit()
+
+class ConsolidationLogger(DataLogger):
+    '''
+    a data logger for tracking files relevant to a particular filing month.
+    '''
+    def __init__(self,log_path:Path):
+        consolidation_log_dtypes = {
+            'ra_category' : 'string',
+            'organization_id' : 'string',
+            'effective_date' : 'datetime64[D]',
+            'attachment_id' : 'string',
+            'archive_path' : 'string',
+            'status' : 'string',
+            'compliance' : 'string',
+        }
+        super().__init__(
+            dtypes=consolidation_log_dtypes,
+            log_path=log_path,
+            delimiter=','
+        )

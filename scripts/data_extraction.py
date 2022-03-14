@@ -1,12 +1,13 @@
 import io
 import re
 import pandas as pd
-from itertools import chain
 from pathlib import Path
+from itertools import chain
+from pandas import Timestamp as ts
 from openpyxl import load_workbook
+from datetime import datetime as dt
 from openpyxl.utils.cell import get_column_letter
 from openpyxl.worksheet.worksheet import Worksheet
-from datetime import datetime as dt
 
 from ra_logging import TextLogger
 from configuration_options import Paths,Organizations
@@ -59,7 +60,7 @@ def get_data_range(worksheet:Worksheet,lse_column:str,data_columns:str,organizat
     for row_number in range(1,worksheet.max_row+1):
         if first_row==0 and str(worksheet['{}{}'.format(lse_column,row_number)].value).lower() in organization_ids:
             first_row = row_number
-        if first_row>0 and last_row==0 and str(worksheet['{}{}'.format(lse_column,row_number+1)].value).lower() in ('none','total','total:'):
+        if first_row>0 and last_row==0 and str(worksheet['{}{}'.format(lse_column,row_number+1)].value).lower() in ('none','total','total:','total cpuc juris'):
             last_row = row_number
             break
     if first_row>0 and last_row>0:
@@ -124,7 +125,7 @@ def get_table(worksheet,table_header_text:str,table_header_offset:dict,columns:l
     data_range = worksheet['{left}{top}:{right}{bottom}'.format(**table_bounds)]
     return data_range_to_dataframe(columns,data_range)
 
-def read_ra_monthly_filing(organization:dict,paths:Paths,logger:TextLogger,date:dt=None,version:int=None):
+def read_ra_monthly_filing(organization:dict,paths:Paths,logger:TextLogger,date:ts=None,version:int=None):
     '''
     extracts relevant data tables from a monthly filing workbook for a given
     lse and month
@@ -332,15 +333,15 @@ def get_year_ahead_tables(year_ahead,filing_month,organizations):
     ]
     data_range = year_ahead['loadforecastinputdata']['B2:N{}'.format(year_ahead['loadforecastinputdata'].max_row)]
     load_forecast_input_data = data_range_to_dataframe(columns,data_range)
-    load_forecast_input_data.dropna(axis='index',inplace=True)
-    load_forecast_input_data['month'] = load_forecast_input_data.loc[:,'month'].map(lambda s: dt(filing_month.year,int(s),1))
+    load_forecast_input_data.dropna(axis='index',how='all',inplace=True)
+    load_forecast_input_data.loc[:,'month'] = load_forecast_input_data.loc[:,'month'].map(lambda s: ts(filing_month.year,int(s),1)).astype('datetime64[M]')
     load_forecast_input_data.set_index(['iou_territory','organization_id','month'],inplace=True)
     load_forecast_input_data.sort_index(inplace=True)
     # accommodate errant entries:
     load_forecast_input_data.loc[:,columns[4:]] = load_forecast_input_data.loc[:,columns[4:]].applymap(lambda x: 0 if isinstance(x,str) else x)
 
     # demand response allocation table:
-    month_columns = [dt(filing_month.year,month,1) for month in range(1,13)]
+    month_columns = [ts(filing_month.year,month,1) for month in range(1,13)]
     columns = [
         'location',
     ] + month_columns
@@ -348,6 +349,7 @@ def get_year_ahead_tables(year_ahead,filing_month,organizations):
     demand_response_allocation = data_range_to_dataframe(columns,data_range)
     demand_response_allocation['location'] = demand_response_allocation.loc[:,'location'].map(lambda x: str(x).lower().replace(' ','_'))
     demand_response_allocation = demand_response_allocation.melt(id_vars=['location'],var_name='month',value_name='allocation')
+    demand_response_allocation.loc[:,'month'] = demand_response_allocation.loc[:,'month'].astype('datetime64[M]')
     demand_response_allocation.set_index(['location','month'],inplace=True)
     demand_response_allocation.sort_index(inplace=True)
 
@@ -368,7 +370,7 @@ def get_year_ahead_tables(year_ahead,filing_month,organizations):
         'rows' : 1,
         'columns' : -1,
     }
-    month_columns = [dt(filing_month.year,month,1) for month in range(1,13)]
+    month_columns = [ts(filing_month.year,month,1).to_numpy().astype('datetime64[M]') for month in range(1,13)]
     columns = [
         'organization_id',
         'flex_category',
@@ -376,15 +378,17 @@ def get_year_ahead_tables(year_ahead,filing_month,organizations):
     flexibility_requirements = get_table(year_ahead['Flexrequirements'],table_header_text,table_header_offset,columns)
     flexibility_requirements['flex_category'] = flexibility_requirements.loc[:,'flex_category'].map(lambda s: int(s[-1]))
     flexibility_requirements = flexibility_requirements.melt(id_vars=['organization_id','flex_category'],var_name='month',value_name='flexibility_requirement')
+    flexibility_requirements.loc[:,'month'] = flexibility_requirements.loc[:,'month'].astype('datetime64[M]')
     flexibility_requirements.set_index(['organization_id','flex_category','month'],inplace=True)
     flexibility_requirements.sort_index(inplace=True)
 
     # flex-rmr:
     columns = ['organization_id'] + month_columns
     data_range = get_data_range(year_ahead['Flex RMR'],'A','BCDEFGHIJKLM',organizations)
-    flex_rmr = data_range_to_dataframe(columns,data_range)
-    flex_rmr.set_index('organization_id',inplace=True)
-    flex_rmr.sort_index(inplace=True)
+    flexibility_rmr = data_range_to_dataframe(columns,data_range)
+    flexibility_rmr = flexibility_rmr.melt(id_vars=['organization_id'],var_name='month',value_name='flexibility_rmr')
+    flexibility_rmr.set_index(['organization_id','month'],inplace=True)
+    flexibility_rmr.sort_index(inplace=True)
 
     # local cam:
     columns = [
@@ -411,128 +415,8 @@ def get_year_ahead_tables(year_ahead,filing_month,organizations):
     columns = [cell.value for cell in data_range[0]]
     data_range = year_ahead['Local RA-CAM-{}'.format(filing_month.year)]['C4:L4']
     total_lcr = data_range_to_dataframe(columns,data_range)
-    return [load_forecast_input_data,demand_response_allocation,cam_credits,flexibility_requirements,flex_rmr,local_rar,total_lcr]
+    return [load_forecast_input_data,demand_response_allocation,cam_credits,flexibility_requirements,flexibility_rmr,local_rar,total_lcr]
     
-# get month ahead forecasts table from month ahead workbook:
-def get_month_ahead_forecasts(month_ahead):
-    '''
-    loads relevant data from the month-ahead forecasts workbook into dataframes
-    parameters:
-        month_ahead - month-ahead workbook
-    '''
-    columns = [
-        'organization_id',
-        'lse_type',
-        'jurisdiction',
-        'lse_lu',
-        'month',
-        'id_and_date',
-        'sce_year_ahead_forecast',
-        'sdge_year_ahead_forecast',
-        'pge_year_ahead_forecast',
-        'total_year_ahead_forecast',
-        'sce_esps_migrating_load',
-        'sce_cca_migrating_load',
-        'sdge_esps_migrating_load',
-        'sdge_cca_migrating_load',
-        'pge_esps_migrating_load',
-        'pge_cca_migrating_load',
-        'sce_migration_adjustment',
-        'sdge_migration_adjustment',
-        'pge_migration_adjustment',
-        'total_migration_adjustment',
-        'sce_revised_monthly_forecast',
-        'sdge_revised_monthly_forecast',
-        'pge_revised_monthly_forecast',
-        'total_revised_monthly_forecast',
-        'sce_revised_noncoincident_monthly_forecast',
-        'sdge_revised_noncoincident_monthly_forecast',
-        'pge_revised_noncoincident_monthly_forecast',
-        'total_revised_noncoincident_monthly_forecast',
-        'sce_revised_nonjurisdictional_load_share',
-        'sdge_revised_nonjurisdictional_load_share',
-        'pge_revised_nonjurisdictional_load_share',
-        'total_revised_nonjurisdictional_load_share',
-        'sce_revised_jurisdictional_load_share',
-        'sdge_revised_jurisdictional_load_share',
-        'pge_revised_jurisdictional_load_share',
-        'total_revised_jurisdictional_load_share',
-    ]
-    data_range = month_ahead['Monthly Tracking for CPUC']['B5:AK{}'.format(month_ahead['Monthly Tracking for CPUC'].max_row)]
-    month_ahead_forecasts = data_range_to_dataframe(columns,data_range)
-    month_ahead_forecasts.set_index(['organization_id','month'],inplace=True)
-    month_ahead_forecasts.sort_index(inplace=True)
-
-    return month_ahead_forecasts
-
-    # get tables from cam-rmr file:
-def get_cam_rmr_tables(cam_rmr):
-    '''
-    loads relevant data from the cam-rmr workbook into dataframes
-    parameters:
-        cam_rmr - cam-rmr workbook
-    '''
-    columns = [
-        'organization_id',
-        'lse_type',
-        'jurisdiction',
-        'lse_lu',
-        'month',
-        'id_and_date',
-        'sce_year_ahead_forecast',
-        'sdge_year_ahead_forecast',
-        'pge_year_ahead_forecast',
-        'total_year_ahead_forecast',
-        'sce_esps_migrating_load',
-        'sce_cca_migrating_load',
-        'sdge_esps_migrating_load',
-        'sdge_cca_migrating_load',
-        'pge_esps_migrating_load',
-        'pge_cca_migrating_load',
-        'sce_load_migration_adjustment',
-        'sdge_load_migration_adjustment',
-        'pge_load_migration_adjustment',
-        'total_load_migration_adjustment',
-        'sce_revised_monthly_forecast',
-        'sdge_revised_monthly_forecast',
-        'pge_revised_monthly_forecast',
-        'total_revised_monthly_forecast',
-        'sce_revised_noncoincident_monthly_forecast',
-        'sdge_revised_noncoincident_monthly_forecast',
-        'pge_revised_noncoincident_monthly_forecast',
-        'total_revised_noncoincident_monthly_forecast',
-        'sce_revised_nonjurisdictional_load_share',
-        'sdge_revised_nonjurisdictional_load_share',
-        'pge_revised_nonjurisdictional_load_share',
-        'total_revised_nonjurisdictional_load_share',
-        'blank',
-        'sce_revised_jurisdictional_load_share',
-        'sdge_revised_jurisdictional_load_share',
-        'pge_revised_jurisdictional_load_share',
-        'total_revised_jurisdictional_load_share',
-    ]
-    data_range = cam_rmr['monthlytracking']['B5:AL{}'.format(cam_rmr['monthlytracking'].max_row)]
-    cam_rmr_monthly_tracking = data_range_to_dataframe(columns,data_range)
-    cam_rmr_monthly_tracking.drop('blank',axis='columns',inplace=True)
-    cam_rmr_monthly_tracking['organization_id'] = cam_rmr_monthly_tracking.loc[:,'organization_id'].map(lambda s: s.replace('Total','').strip())
-    cam_rmr_monthly_tracking.set_index(['organization_id','month'],inplace=True)
-    cam_rmr_monthly_tracking.sort_index(inplace=True)
-    columns = [
-        'np26_cam',
-        'sp26_cam',
-        'np26_rmr',
-        'sp26_rmr',
-        'system_rmr',
-        'sce_preferred_lcr_credit',
-        'sdge_cam',
-        'sce_cam',
-    ]
-    data_range = cam_rmr['CAMRMR']['B4:I4']
-    total_cam_rmr = pd.Series(data=[cell.value for cell in data_range[0]],index=columns)
-
-    return [cam_rmr_monthly_tracking,total_cam_rmr]
-
-# get incremental local load forecasts from incremental local workbook:
 def get_incremental_local_tables(incremental_local,organizations:Organizations):
     '''
     loads relevant data from the incremental local year-ahead adjustment
@@ -595,6 +479,124 @@ def get_incremental_local_tables(incremental_local,organizations:Organizations):
     local_rar_trueup.sort_index(inplace=True)
     return [incremental_flex,incremental_local_load,local_rar_trueup]
     
+def get_month_ahead_forecasts(month_ahead):
+    '''
+    loads relevant data from the month-ahead forecasts workbook into dataframes
+    parameters:
+        month_ahead - month-ahead workbook
+    '''
+    columns = [
+        'organization_id',
+        'lse_type',
+        'jurisdiction',
+        'lse_lu',
+        'month',
+        'id_and_date',
+        'sce_year_ahead_forecast',
+        'sdge_year_ahead_forecast',
+        'pge_year_ahead_forecast',
+        'total_year_ahead_forecast',
+        'sce_esps_migrating_load',
+        'sce_cca_migrating_load',
+        'sdge_esps_migrating_load',
+        'sdge_cca_migrating_load',
+        'pge_esps_migrating_load',
+        'pge_cca_migrating_load',
+        'sce_migration_adjustment',
+        'sdge_migration_adjustment',
+        'pge_migration_adjustment',
+        'total_migration_adjustment',
+        'sce_revised_monthly_forecast',
+        'sdge_revised_monthly_forecast',
+        'pge_revised_monthly_forecast',
+        'total_revised_monthly_forecast',
+        'sce_revised_noncoincident_monthly_forecast',
+        'sdge_revised_noncoincident_monthly_forecast',
+        'pge_revised_noncoincident_monthly_forecast',
+        'total_revised_noncoincident_monthly_forecast',
+        'sce_revised_nonjurisdictional_load_share',
+        'sdge_revised_nonjurisdictional_load_share',
+        'pge_revised_nonjurisdictional_load_share',
+        'total_revised_nonjurisdictional_load_share',
+        'sce_revised_jurisdictional_load_share',
+        'sdge_revised_jurisdictional_load_share',
+        'pge_revised_jurisdictional_load_share',
+        'total_revised_jurisdictional_load_share',
+    ]
+    data_range = month_ahead['Monthly Tracking for CPUC']['B5:AK{}'.format(month_ahead['Monthly Tracking for CPUC'].max_row)]
+    month_ahead_forecasts = data_range_to_dataframe(columns,data_range)
+    month_ahead_forecasts['organization_id'] = month_ahead_forecasts.loc[:,'organization_id'].map(lambda s: s.replace('Total','').strip() if isinstance(s,str) else s)
+    month_ahead_forecasts.set_index(['organization_id','month'],inplace=True)
+    month_ahead_forecasts.sort_index(inplace=True)
+    return month_ahead_forecasts
+
+def get_cam_rmr_tables(cam_rmr):
+    '''
+    loads relevant data from the cam-rmr workbook into dataframes
+    parameters:
+        cam_rmr - cam-rmr workbook
+    '''
+    columns = [
+        'organization_id',
+        'lse_type',
+        'jurisdiction',
+        'lse_lu',
+        'month',
+        'id_and_date',
+        'sce_year_ahead_forecast',
+        'sdge_year_ahead_forecast',
+        'pge_year_ahead_forecast',
+        'total_year_ahead_forecast',
+        'sce_esps_migrating_load',
+        'sce_cca_migrating_load',
+        'sdge_esps_migrating_load',
+        'sdge_cca_migrating_load',
+        'pge_esps_migrating_load',
+        'pge_cca_migrating_load',
+        'sce_load_migration_adjustment',
+        'sdge_load_migration_adjustment',
+        'pge_load_migration_adjustment',
+        'total_load_migration_adjustment',
+        'sce_revised_monthly_forecast',
+        'sdge_revised_monthly_forecast',
+        'pge_revised_monthly_forecast',
+        'total_revised_monthly_forecast',
+        'sce_revised_noncoincident_monthly_forecast',
+        'sdge_revised_noncoincident_monthly_forecast',
+        'pge_revised_noncoincident_monthly_forecast',
+        'total_revised_noncoincident_monthly_forecast',
+        'sce_revised_nonjurisdictional_load_share',
+        'sdge_revised_nonjurisdictional_load_share',
+        'pge_revised_nonjurisdictional_load_share',
+        'total_revised_nonjurisdictional_load_share',
+        'blank',
+        'sce_revised_jurisdictional_load_share',
+        'sdge_revised_jurisdictional_load_share',
+        'pge_revised_jurisdictional_load_share',
+        'total_revised_jurisdictional_load_share',
+    ]
+    data_range = cam_rmr['monthlytracking']['B5:AL{}'.format(cam_rmr['monthlytracking'].max_row)]
+    cam_rmr_monthly_tracking = data_range_to_dataframe(columns,data_range)
+    cam_rmr_monthly_tracking.drop('blank',axis='columns',inplace=True)
+    cam_rmr_monthly_tracking.dropna(subset=['organization_id','month'],inplace=True)
+    cam_rmr_monthly_tracking['organization_id'] = cam_rmr_monthly_tracking.loc[:,'organization_id'].map(lambda s: s.replace('Total','').strip() if isinstance(s,str) else s)
+    cam_rmr_monthly_tracking.set_index(['organization_id','month'],inplace=True)
+    cam_rmr_monthly_tracking.sort_index(inplace=True)
+    columns = [
+        'np26_cam',
+        'sp26_cam',
+        'np26_rmr',
+        'sp26_rmr',
+        'system_rmr',
+        'sce_preferred_lcr_credit',
+        'sdge_cam',
+        'sce_cam',
+    ]
+    data_range = cam_rmr['CAMRMR']['B4:I4']
+    total_cam_rmr = pd.Series(data=[cell.value for cell in data_range[0]],index=columns)
+
+    return [cam_rmr_monthly_tracking,total_cam_rmr]
+
 def get_summary_tables(ra_summary):
     '''
     loads select data from a summary workbook into dataframes
@@ -661,7 +663,7 @@ def get_nqc_list(ra_summary,filing_month):
         ra_summary - a workbook containing the monthly resource adequacy summary data
         filing_month - month of resource adequacy filings
     '''
-    month_columns = [dt(filing_month.year,month,1) for month in range(1,13)]
+    month_columns = [ts(filing_month.year,month,1).to_numpy().astype('datetime64[M]') for month in range(1,13)]
     columns = [
         'generator_name',
         'resource_id',

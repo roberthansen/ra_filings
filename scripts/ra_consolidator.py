@@ -2,12 +2,12 @@ import xlrd
 import numpy as np
 import pandas as pd
 from pathlib import Path
-from datetime import datetime as dt
+from pandas import Timestamp as ts
 from openpyxl.styles import PatternFill,Font
 from openpyxl.formatting.rule import CellIsRule
 from openpyxl.utils.cell import get_column_letter
 
-from ra_logging import TextLogger
+from ra_logging import TextLogger,AttachmentLogger,ConsolidationLogger
 from configuration_options import ConfigurationOptions,Paths,Organizations
 from data_extraction import open_workbook,get_data_range,data_range_to_dataframe,read_ra_monthly_filing,get_year_ahead_tables,get_month_ahead_forecasts,get_cam_rmr_tables,get_incremental_local_tables,get_nqc_list
 
@@ -31,17 +31,8 @@ class WorkbookConsolidator:
             self.configuration_options.get_option('file_logging_criticalities'),
             self.paths.get_path('log')
         )
-        self.to_archive = [
-            'ra_monthly_filing',
-            'incremental_local',
-            'cam_rmr',
-            'month_ahead',
-            'year_ahead',
-            'supply_plan_system',
-            'supply_plan_local',
-            'ra_summary',
-            'caiso_cross_check',
-        ]
+        self.attachment_logger = AttachmentLogger(self.paths.get_path('attachment_log'))
+        self.consolidation_logger = ConsolidationLogger(self.paths.get_path('consolidation_log'))
 
     # copy summary template to new summary file:
     def initialize_ra_summary(self):
@@ -74,7 +65,7 @@ class WorkbookConsolidator:
         self.logger.log('Consolidating Allocation Data','INFORMATION')
 
         # start timer:
-        init_time = dt.now()
+        init_time = ts.now()
 
         filing_month = self.configuration_options.get_option('filing_month')
 
@@ -128,60 +119,54 @@ class WorkbookConsolidator:
             organization_id = row.loc['organization_id']
             inverse_organization_selection = list(dict.fromkeys(filter(lambda idx: idx!=organization_id,cam_rmr_monthly_tracking.index.get_level_values(0))).keys())
             # NP26 summary sheet:
-            try:
-                # if filing_month.month>=9 and organization_id=='PGE':
-                if organization_id=='PGE':
-                    cam_load_share = -cam_rmr_monthly_tracking.loc[(inverse_organization_selection,filing_month),'pge_revised_nonjurisdictional_load_share'].sum()
-                else:
-                    cam_load_share = cam_rmr_monthly_tracking.loc[(organization_id,filing_month),'pge_revised_nonjurisdictional_load_share']
-                np26_ra_obligation = np.round(
-                    (
-                        # PGEload:
-                        (1 + self.configuration_options.get_option('planning_reserve_margin')) * month_ahead_forecasts.loc[(organization_id,filing_month),'pge_revised_monthly_forecast']
-                        # NP26CAM:
-                        -total_cam_rmr.loc['np26_cam'] * cam_load_share
-                        # NP26RMR:
-                        -total_cam_rmr.loc['np26_rmr'] * cam_rmr_monthly_tracking.loc[(organization_id,filing_month),'pge_revised_nonjurisdictional_load_share']
-                    ),
-                    0
-                ) - total_cam_rmr.loc['system_rmr'] * cam_rmr_monthly_tracking.loc[(organization_id,filing_month),'total_revised_jurisdictional_load_share']
-            except:
-                np26_ra_obligation = 0
+            # if filing_month.month>=9 and organization_id=='PGE':
+            if organization_id=='PGE':
+                cam_load_share = -cam_rmr_monthly_tracking.loc[(inverse_organization_selection,filing_month),'pge_revised_nonjurisdictional_load_share'].sum()
+            else:
+                cam_load_share = cam_rmr_monthly_tracking.loc[(organization_id,filing_month),'pge_revised_nonjurisdictional_load_share']
+            np26_ra_obligation = np.round(
+                (
+                    # PGEload:
+                    (1 + self.configuration_options.get_option('planning_reserve_margin')) * month_ahead_forecasts.loc[(organization_id,filing_month),'pge_revised_monthly_forecast']
+                    # NP26CAM:
+                    -total_cam_rmr.loc['np26_cam'] * cam_load_share
+                    # NP26RMR:
+                    -total_cam_rmr.loc['np26_rmr'] * cam_rmr_monthly_tracking.loc[(organization_id,filing_month),'pge_revised_nonjurisdictional_load_share']
+                ),
+                0
+            ) - total_cam_rmr.loc['system_rmr'] * cam_rmr_monthly_tracking.loc[(organization_id,filing_month),'total_revised_jurisdictional_load_share']
             sn_path26_allocation = 0
             # SP26 summary sheet:
-            try:
-                # if filing_month.month>=9 and organization_id=='SCE':
-                if organization_id=='SCE':
-                    cam_load_share_sce = -cam_rmr_monthly_tracking.loc[(inverse_organization_selection,filing_month),'sce_revised_nonjurisdictional_load_share'].sum()
-                    cam_load_share_sdge = cam_rmr_monthly_tracking.loc[(organization_id,filing_month),'sdge_revised_nonjurisdictional_load_share']
-                # elif filing_month.month>=9 and organization_id=='SDGE':
-                elif organization_id=='SDGE':
-                    cam_load_share_sce = cam_rmr_monthly_tracking.loc[(organization_id,filing_month),'sce_revised_nonjurisdictional_load_share']
-                    cam_load_share_sdge = -cam_rmr_monthly_tracking.loc[(inverse_organization_selection,filing_month),'sdge_revised_nonjurisdictional_load_share'].sum()
-                else:
-                    cam_load_share_sce = cam_rmr_monthly_tracking.loc[(organization_id,filing_month),'sce_revised_nonjurisdictional_load_share']
-                    cam_load_share_sdge = cam_rmr_monthly_tracking.loc[(organization_id,filing_month),'sdge_revised_nonjurisdictional_load_share']
-                sp26_ra_obligation = np.round(
-                    (
-                        (1 + self.configuration_options.get_option('planning_reserve_margin')) * (
-                            # SCEload:
-                            month_ahead_forecasts.loc[(organization_id,filing_month),'sce_revised_monthly_forecast']
-                            # SDGEload:
-                            +month_ahead_forecasts.loc[(organization_id,filing_month),'sdge_revised_monthly_forecast']
-                        )
-                        # SP26CAM:
-                        -total_cam_rmr.loc['sce_cam'] * cam_load_share_sce
-                        -total_cam_rmr.loc['sdge_cam'] * cam_load_share_sdge
-                        # SP26RMR:
-                        -total_cam_rmr.loc['sp26_rmr'] * cam_rmr_monthly_tracking.loc[(organization_id,filing_month),'sce_revised_nonjurisdictional_load_share']
-                        #-total_cam_rmr.loc['sp26_rmr'] * cam_rmr_monthly_tracking.loc[(organization_id,filing_month),'sdge_revised_nonjurisdictional_load_share']
-                        # SCELCR:
-                        -total_cam_rmr.loc['sce_preferred_lcr_credit'] * cam_rmr_monthly_tracking.loc[(organization_id,filing_month),'sce_revised_jurisdictional_load_share']
-                    ),
-                    0
-                )
-            except:
-                sp26_ra_obligation = 0
+            # if filing_month.month>=9 and organization_id=='SCE':
+            if organization_id=='SCE':
+                cam_load_share_sce = -cam_rmr_monthly_tracking.loc[(inverse_organization_selection,filing_month),'sce_revised_nonjurisdictional_load_share'].sum()
+                cam_load_share_sdge = cam_rmr_monthly_tracking.loc[(organization_id,filing_month),'sdge_revised_nonjurisdictional_load_share']
+            # elif filing_month.month>=9 and organization_id=='SDGE':
+            elif organization_id=='SDGE':
+                cam_load_share_sce = cam_rmr_monthly_tracking.loc[(organization_id,filing_month),'sce_revised_nonjurisdictional_load_share']
+                cam_load_share_sdge = -cam_rmr_monthly_tracking.loc[(inverse_organization_selection,filing_month),'sdge_revised_nonjurisdictional_load_share'].sum()
+            else:
+                cam_load_share_sce = cam_rmr_monthly_tracking.loc[(organization_id,filing_month),'sce_revised_nonjurisdictional_load_share']
+                cam_load_share_sdge = cam_rmr_monthly_tracking.loc[(organization_id,filing_month),'sdge_revised_nonjurisdictional_load_share']
+            sp26_ra_obligation = np.round(
+                (
+                    (1 + self.configuration_options.get_option('planning_reserve_margin')) * (
+                        # SCEload:
+                        month_ahead_forecasts.loc[(organization_id,filing_month),'sce_revised_monthly_forecast']
+                        # SDGEload:
+                        +month_ahead_forecasts.loc[(organization_id,filing_month),'sdge_revised_monthly_forecast']
+                    )
+                    # SP26CAM:
+                    -total_cam_rmr.loc['sce_cam'] * cam_load_share_sce
+                    -total_cam_rmr.loc['sdge_cam'] * cam_load_share_sdge
+                    # SP26RMR:
+                    -total_cam_rmr.loc['sp26_rmr'] * cam_rmr_monthly_tracking.loc[(organization_id,filing_month),'sce_revised_nonjurisdictional_load_share']
+                    #-total_cam_rmr.loc['sp26_rmr'] * cam_rmr_monthly_tracking.loc[(organization_id,filing_month),'sdge_revised_nonjurisdictional_load_share']
+                    # SCELCR:
+                    -total_cam_rmr.loc['sce_preferred_lcr_credit'] * cam_rmr_monthly_tracking.loc[(organization_id,filing_month),'sce_revised_jurisdictional_load_share']
+                ),
+                0
+            )
             ns_path26_allocation = 0
             def incremental_flex_by_category(category: int):
                 if incremental_flex:
@@ -196,7 +181,7 @@ class WorkbookConsolidator:
                     incremental_load = 0
                 return incremental_load
             def august_demand_response(iou_territory: str,location: str):
-                month = dt(filing_month.year,8,1)
+                month = ts(filing_month.year,8,1)
                 if (iou_territory,organization_id,month) in load_forecast_input_data.index and (location,month) in demand_response_allocation.index:
                     august_forecast_lse = load_forecast_input_data.loc[(iou_territory,organization_id,month),'final_coincident_peak_forecast']
                     organization_id_indices = list(dict.fromkeys(load_forecast_input_data.loc[(iou_territory),:].index.get_level_values(0)))
@@ -216,7 +201,7 @@ class WorkbookConsolidator:
                 'sn_path26_allocation' : sn_path26_allocation,
                 'sp26_ra_obligation' : sp26_ra_obligation,
                 'ns_path26_allocation' : ns_path26_allocation,
-                'year_ahead_flex_rar_category1' : flexibility_requirements.loc[(organization_id,1,filing_month),'flexibility_requirement'] - flexibility_rmr.loc[organization_id,filing_month],
+                'year_ahead_flex_rar_category1' : flexibility_requirements.loc[(organization_id,1,filing_month),'flexibility_requirement'] - flexibility_rmr.loc[(organization_id,filing_month),'flexibility_rmr'],
                 'year_ahead_flex_rar_category2' : flexibility_requirements.loc[(organization_id,2,filing_month),'flexibility_requirement'],
                 'year_ahead_flex_rar_category3' : flexibility_requirements.loc[(organization_id,3,filing_month),'flexibility_requirement'],
                 'year_ahead_flex_incremental_category1' : incremental_flex_by_category(1),
@@ -273,8 +258,7 @@ class WorkbookConsolidator:
             '@INDIRECT(ADDRESS(ROW(),COLUMN()-2))-' + \
             '@INDIRECT(ADDRESS(ROW(),COLUMN()-4))-' + \
             '@INDIRECT(ADDRESS(ROW(),COLUMN()-3)))'
-        for row in summary.iterrows():
-            s = row[1]
+        for _,s in summary.iterrows():
             organization_id = s.loc['organization_id']
             ra_summary['NP26']['A{}'.format(row_number)].value = organization_id
             ra_summary['NP26']['B{}'.format(row_number)].value = s.loc['np26_ra_obligation']
@@ -475,7 +459,9 @@ class WorkbookConsolidator:
             caiso_cross_check['Requirements']['CJ{}'.format(row_number+1)] = s.loc[['bay_area_incremental_load','humboldt_incremental_load','sierra_incremental_load','stockton_incremental_load','northern_california_incremental_load','fresno_incremental_load','kern_incremental_load']].sum()
             caiso_cross_check['Requirements']['CK{}'.format(row_number+1)] = s.loc[['bay_area_august_demand_response','humboldt_august_demand_response','sierra_august_demand_response','stockton_august_demand_response','northern_california_august_demand_response','fresno_august_demand_response','kern_august_demand_response']].sum()
             caiso_cross_check['Requirements']['CM{}'.format(row_number+1)] = compliance_check
+
             row_number += 1
+        self.consolidation_logger.commit()
 
         # total rows on local true-up sheet:
         ra_summary['LocalTrueUp']['A{}'.format(row_number)] = 'Total:'
@@ -489,13 +475,13 @@ class WorkbookConsolidator:
         caiso_cross_check.close()
 
         # check time and report:
-        run_time = (dt.now() - init_time).total_seconds()
+        run_time = (ts.now() - init_time).total_seconds()
         self.logger.log('Retrieved Allocations in {:02.0f}:{:02.0f}:{:05.2f}'.format(int(run_time/3600),int((run_time%3600)/60),run_time%60),'INFORMATION')
 
     # collect data from each of the monthly lse filings:
     def consolidate_filings(self):
         # start timer:
-        init_time = dt.now()
+        init_time = ts.now()
         self.logger.log('Consolidating Data from LSE Filings','INFORMATION')
 
         # get list of active load serving entities from summary sheet:
@@ -688,73 +674,83 @@ class WorkbookConsolidator:
             caiso_cross_check['FilingSummary']['M{}'.format(row_number_summary)] = '=@INDIRECT("L"&ROW())-@INDIRECT("K"&ROW())'
             caiso_cross_check['FilingSummary']['M{}'.format(row_number_summary)].fill = PatternFill(start_color='FFF2CC',end_color='FFF2CC',fill_type='solid')
             caiso_cross_check['FilingSummary']['Y{}'.format(row_number_summary)] = '=@INDIRECT("L"&ROW())-@INDIRECT("K"&ROW())'
+
+            # update log with compliance:
+            requirements = caiso_cross_check['Requirements']['B{}'.format(row_number_summary+1)].value
+            resources = caiso_cross_check['Requirements']['C{}'.format(row_number_summary+1)].value + \
+                caiso_cross_check['Requirements']['D{}'.format(row_number_summary+1)].value
+            if resources<=requirements:
+                compliance = 'Compliant'
+            else:
+                compliance = 'Noncompliant'
+            self.consolidation_logger.data.loc[(),'compliance'] = compliance
             row_number_summary += 1
-            for row in physical_resources.loc[(physical_resources.loc[:,'organization_id']==organization_id),:].iterrows():
+            for _,row in physical_resources.loc[(physical_resources.loc[:,'organization_id']==organization_id),:].iterrows():
                 ra_summary['PhysicalResources']['A{}'.format(row_number_physical_resources)] = organization_id
-                ra_summary['PhysicalResources']['B{}'.format(row_number_physical_resources)] = row[1].loc['contract_id']
-                ra_summary['PhysicalResources']['C{}'.format(row_number_physical_resources)] = row[1].loc['resource_id']
-                ra_summary['PhysicalResources']['D{}'.format(row_number_physical_resources)].value = row[1].loc['resource_adequacy_system']
-                ra_summary['PhysicalResources']['E{}'.format(row_number_physical_resources)].value = row[1].loc['resource_adequacy_local']
-                ra_summary['PhysicalResources']['F{}'.format(row_number_physical_resources)].value = row[1].loc['resource_mcc_bucket']
-                ra_summary['PhysicalResources']['G{}'.format(row_number_physical_resources)].value = row[1].loc['continuous_availability']
-                ra_summary['PhysicalResources']['H{}'.format(row_number_physical_resources)].value = row[1].loc['resource_adequacy_committed_flexible']
-                ra_summary['PhysicalResources']['I{}'.format(row_number_physical_resources)].value = row[1].loc['resource_adequacy_flexibility_category']
+                ra_summary['PhysicalResources']['B{}'.format(row_number_physical_resources)] = row.loc['contract_id']
+                ra_summary['PhysicalResources']['C{}'.format(row_number_physical_resources)] = row.loc['resource_id']
+                ra_summary['PhysicalResources']['D{}'.format(row_number_physical_resources)].value = row.loc['resource_adequacy_system']
+                ra_summary['PhysicalResources']['E{}'.format(row_number_physical_resources)].value = row.loc['resource_adequacy_local']
+                ra_summary['PhysicalResources']['F{}'.format(row_number_physical_resources)].value = row.loc['resource_mcc_bucket']
+                ra_summary['PhysicalResources']['G{}'.format(row_number_physical_resources)].value = row.loc['continuous_availability']
+                ra_summary['PhysicalResources']['H{}'.format(row_number_physical_resources)].value = row.loc['resource_adequacy_committed_flexible']
+                ra_summary['PhysicalResources']['I{}'.format(row_number_physical_resources)].value = row.loc['resource_adequacy_flexibility_category']
                 ra_summary['PhysicalResources']['J{}'.format(row_number_physical_resources)] = '=VLOOKUP(@INDIRECT("C"&ROW()),\'NQC_List\'!$B:$D,2,FALSE)'
                 ra_summary['PhysicalResources']['K{}'.format(row_number_physical_resources)] = '=VLOOKUP(@INDIRECT("C"&ROW()),\'NQC_List\'!$B:$D,3,FALSE)'
                 caiso_cross_check['Filings']['A{}'.format(row_number_physical_resources+1)] = organization_id
-                caiso_cross_check['Filings']['B{}'.format(row_number_physical_resources+1)] = row[1].loc['contract_id']
-                caiso_cross_check['Filings']['C{}'.format(row_number_physical_resources+1)] = row[1].loc['resource_id']
+                caiso_cross_check['Filings']['B{}'.format(row_number_physical_resources+1)] = row.loc['contract_id']
+                caiso_cross_check['Filings']['C{}'.format(row_number_physical_resources+1)] = row.loc['resource_id']
                 caiso_cross_check['Filings']['D{}'.format(row_number_physical_resources+1)] = '=CONCATENATE(@INDIRECT("A"&ROW()),@INDIRECT("C"&ROW()),@INDIRECT("G"&ROW()))'
                 caiso_cross_check['Filings']['E{}'.format(row_number_physical_resources+1)] = '=CONCATENATE(@INDIRECT("A"&ROW()),@INDIRECT("C"&ROW()))'
                 caiso_cross_check['Filings']['F{}'.format(row_number_physical_resources+1)] = '=CONCATENATE(@INDIRECT("A"&ROW()),@INDIRECT("C"&ROW()),@INDIRECT("M"&ROW()))'
-                caiso_cross_check['Filings']['G{}'.format(row_number_physical_resources+1)].value = row[1].loc['resource_adequacy_system']
-                caiso_cross_check['Filings']['H{}'.format(row_number_physical_resources+1)].value = row[1].loc['resource_adequacy_local']
+                caiso_cross_check['Filings']['G{}'.format(row_number_physical_resources+1)].value = row.loc['resource_adequacy_system']
+                caiso_cross_check['Filings']['H{}'.format(row_number_physical_resources+1)].value = row.loc['resource_adequacy_local']
                 caiso_cross_check['Filings']['I{}'.format(row_number_physical_resources+1)] = '=SUMIFS($G:$G,$A:$A,@INDIRECT("A"&ROW()),$C:$C,@INDIRECT("C"&ROW()))'
                 caiso_cross_check['Filings']['J{}'.format(row_number_physical_resources+1)] = '=SUMIFS(CAISO_Sys_SP!$I:$I,CAISO_Sys_SP!$C:$C,@INDIRECT("A"&ROW()),CAISO_Sys_SP!$F:$F,@INDIRECT("C"&ROW()))'
                 caiso_cross_check['Filings']['K{}'.format(row_number_physical_resources+1)] = '=IF(@INDIRECT("J"&ROW())<>@INDIRECT("I"&ROW()),"Y: "&@INDIRECT("J"&ROW())-@INDIRECT("I"&ROW())&" MW","-")'
-                caiso_cross_check['Filings']['L{}'.format(row_number_physical_resources+1)].value = row[1].loc['resource_mcc_bucket']
-                caiso_cross_check['Filings']['M{}'.format(row_number_physical_resources+1)].value = row[1].loc['resource_adequacy_committed_flexible']
+                caiso_cross_check['Filings']['L{}'.format(row_number_physical_resources+1)].value = row.loc['resource_mcc_bucket']
+                caiso_cross_check['Filings']['M{}'.format(row_number_physical_resources+1)].value = row.loc['resource_adequacy_committed_flexible']
                 caiso_cross_check['Filings']['N{}'.format(row_number_physical_resources+1)] = '=SUMIFS($M:$M,$A:$A,@INDIRECT("A"&ROW()),$C:$C,@INDIRECT("C"&ROW()))'
                 caiso_cross_check['Filings']['O{}'.format(row_number_physical_resources+1)] = '=SUMIFS(CAISO_Flex_SP!$G:$G,CAISO_Flex_SP!$B:$B,@INDIRECT("A"&ROW()),CAISO_Flex_SP!$E:$E,@INDIRECT("C"&ROW()))'
                 caiso_cross_check['Filings']['P{}'.format(row_number_physical_resources+1)] = '=IF(@INDIRECT("O"&ROW())<>@INDIRECT("N"&ROW()),"Y: "&@INDIRECT("O"&ROW())-@INDIRECT("N"&ROW())&" MW","-")'
-                caiso_cross_check['Filings']['Q{}'.format(row_number_physical_resources+1)].value = row[1].loc['resource_adequacy_flexibility_category']
-                caiso_cross_check['Filings']['R{}'.format(row_number_physical_resources+1)].value = get_zone(row[1].loc['resource_id'])
+                caiso_cross_check['Filings']['Q{}'.format(row_number_physical_resources+1)].value = row.loc['resource_adequacy_flexibility_category']
+                caiso_cross_check['Filings']['R{}'.format(row_number_physical_resources+1)].value = get_zone(row.loc['resource_id'])
                 caiso_cross_check['Filings']['S{}'.format(row_number_physical_resources+1)] = '=IF(NOT(ISBLANK(@INDIRECT("G"&ROW()))),IF(ISNA(VLOOKUP(@INDIRECT("A"&ROW()),CAISO_Sys_SP!$A:$A,1,FALSE)),"N","-"),"")'
                 caiso_cross_check['Filings']['T{}'.format(row_number_physical_resources+1)] = '=IF(AND(NOT(ISBLANK(@INDIRECT("H"&ROW()))),NOT(@INDIRECT("H"&ROW())=0)),IF(ISNA(VLOOKUP(@INDIRECT("B"&ROW()),CAISO_Sys_SP!$B:$B,1,FALSE)),"N","-"),"")'
                 caiso_cross_check['Filings']['U{}'.format(row_number_physical_resources+1)] = '=IF(NOT(ISBLANK(@INDIRECT("M"&ROW()))),IF(ISNA(VLOOKUP(@INDIRECT("C"&ROW()),CAISO_Flex_SP!$A:$A,1,FALSE)),"N","-"),"")'
                 for col in 'DEFIJKNOPSTU':
                     caiso_cross_check['Filings']['{}{}'.format(col,row_number_physical_resources+1)].fill = PatternFill(start_color='DDEBF7',end_color='DDEBF7',fill_type='solid')
                 row_number_physical_resources += 1
-            for row in demand_response.loc[(demand_response.loc[:,'organization_id']==organization_id),:].iterrows():
+            for _,row in demand_response.loc[(demand_response.loc[:,'organization_id']==organization_id),:].iterrows():
                 ra_summary['PhysicalResources']['A{}'.format(row_number_physical_resources)] = organization_id
-                ra_summary['PhysicalResources']['B{}'.format(row_number_physical_resources)] = row[1].loc['contract_id']
-                ra_summary['PhysicalResources']['C{}'.format(row_number_physical_resources)] = row[1].loc['program_id']
-                ra_summary['PhysicalResources']['D{}'.format(row_number_physical_resources)].value = row[1].loc['resource_adequacy_system']
-                ra_summary['PhysicalResources']['E{}'.format(row_number_physical_resources)].value = row[1].loc['resource_adequacy_local']
-                ra_summary['PhysicalResources']['F{}'.format(row_number_physical_resources)].value = row[1].loc['resource_mcc_bucket']
+                ra_summary['PhysicalResources']['B{}'.format(row_number_physical_resources)] = row.loc['contract_id']
+                ra_summary['PhysicalResources']['C{}'.format(row_number_physical_resources)] = row.loc['program_id']
+                ra_summary['PhysicalResources']['D{}'.format(row_number_physical_resources)].value = row.loc['resource_adequacy_system']
+                ra_summary['PhysicalResources']['E{}'.format(row_number_physical_resources)].value = row.loc['resource_adequacy_local']
+                ra_summary['PhysicalResources']['F{}'.format(row_number_physical_resources)].value = row.loc['resource_mcc_bucket']
                 ra_summary['PhysicalResources']['G{}'.format(row_number_physical_resources)].value = 0
-                ra_summary['PhysicalResources']['H{}'.format(row_number_physical_resources)].value = row[1].loc['resource_adequacy_committed_flexible']
-                ra_summary['PhysicalResources']['I{}'.format(row_number_physical_resources)].value = row[1].loc['resource_adequacy_flexibility_category']
+                ra_summary['PhysicalResources']['H{}'.format(row_number_physical_resources)].value = row.loc['resource_adequacy_committed_flexible']
+                ra_summary['PhysicalResources']['I{}'.format(row_number_physical_resources)].value = row.loc['resource_adequacy_flexibility_category']
                 ra_summary['PhysicalResources']['J{}'.format(row_number_physical_resources)] = '=VLOOKUP(@INDIRECT("C"&ROW()),\'NQC_List\'!$B:$D,2,FALSE)'
                 ra_summary['PhysicalResources']['K{}'.format(row_number_physical_resources)] = '=VLOOKUP(@INDIRECT("C"&ROW()),\'NQC_List\'!$B:$D,3,FALSE)'
                 caiso_cross_check['Filings']['A{}'.format(row_number_physical_resources+1)] = organization_id
-                caiso_cross_check['Filings']['B{}'.format(row_number_physical_resources+1)] = row[1].loc['contract_id']
-                caiso_cross_check['Filings']['C{}'.format(row_number_physical_resources+1)] = row[1].loc['program_id']
+                caiso_cross_check['Filings']['B{}'.format(row_number_physical_resources+1)] = row.loc['contract_id']
+                caiso_cross_check['Filings']['C{}'.format(row_number_physical_resources+1)] = row.loc['program_id']
                 caiso_cross_check['Filings']['D{}'.format(row_number_physical_resources+1)] = '=CONCATENATE(@INDIRECT("A"&ROW()),@INDIRECT("C"&ROW()),@INDIRECT("G"&ROW()))'
                 caiso_cross_check['Filings']['E{}'.format(row_number_physical_resources+1)] = '=CONCATENATE(@INDIRECT("A"&ROW()),@INDIRECT("C"&ROW()))'
                 caiso_cross_check['Filings']['F{}'.format(row_number_physical_resources+1)] = '=CONCATENATE(@INDIRECT("A"&ROW()),@INDIRECT("C"&ROW()),@INDIRECT("M"&ROW()))'
-                caiso_cross_check['Filings']['G{}'.format(row_number_physical_resources+1)].value = row[1].loc['resource_adequacy_system']
-                caiso_cross_check['Filings']['H{}'.format(row_number_physical_resources+1)].value = row[1].loc['resource_adequacy_local']
+                caiso_cross_check['Filings']['G{}'.format(row_number_physical_resources+1)].value = row.loc['resource_adequacy_system']
+                caiso_cross_check['Filings']['H{}'.format(row_number_physical_resources+1)].value = row.loc['resource_adequacy_local']
                 caiso_cross_check['Filings']['I{}'.format(row_number_physical_resources+1)] = '=SUMIFS($G:$G,$A:$A,@INDIRECT("A"&ROW()),$C:$C,@INDIRECT("C"&ROW()))'
                 caiso_cross_check['Filings']['J{}'.format(row_number_physical_resources+1)] = '=SUMIFS(CAISO_Sys_SP!$I:$I,CAISO_Sys_SP!$C:$C,@INDIRECT("A"&ROW()),CAISO_Sys_SP!$F:$F,@INDIRECT("C"&ROW()))'
                 caiso_cross_check['Filings']['K{}'.format(row_number_physical_resources+1)] = '=IF(@INDIRECT("J"&ROW())<>@INDIRECT("I"&ROW()),"Y: "&@INDIRECT("J"&ROW())-@INDIRECT("I"&ROW())&" MW","-")'
-                caiso_cross_check['Filings']['L{}'.format(row_number_physical_resources+1)].value = row[1].loc['resource_mcc_bucket']
-                caiso_cross_check['Filings']['M{}'.format(row_number_physical_resources+1)].value = row[1].loc['resource_adequacy_committed_flexible']
+                caiso_cross_check['Filings']['L{}'.format(row_number_physical_resources+1)].value = row.loc['resource_mcc_bucket']
+                caiso_cross_check['Filings']['M{}'.format(row_number_physical_resources+1)].value = row.loc['resource_adequacy_committed_flexible']
                 caiso_cross_check['Filings']['N{}'.format(row_number_physical_resources+1)] = '=SUMIFS($M:$M,$A:$A,@INDIRECT("A"&ROW()),$C:$C,@INDIRECT("C"&ROW()))'
                 caiso_cross_check['Filings']['O{}'.format(row_number_physical_resources+1)] = '=SUMIFS(CAISO_Flex_SP!$G:$G,CAISO_Flex_SP!$B:$B,@INDIRECT("A"&ROW()),CAISO_Flex_SP!$E:$E,@INDIRECT("C"&ROW()))'
                 caiso_cross_check['Filings']['P{}'.format(row_number_physical_resources+1)] = '=IF(@INDIRECT("O"&ROW())<>@INDIRECT("N"&ROW()),"Y: "&@INDIRECT("O"&ROW())-@INDIRECT("N"&ROW())&" MW","-")'
-                caiso_cross_check['Filings']['Q{}'.format(row_number_physical_resources+1)].value = row[1].loc['resource_adequacy_flexibility_category']
-                caiso_cross_check['Filings']['R{}'.format(row_number_physical_resources+1)].value = get_zone(row[1].loc['program_id'])
+                caiso_cross_check['Filings']['Q{}'.format(row_number_physical_resources+1)].value = row.loc['resource_adequacy_flexibility_category']
+                caiso_cross_check['Filings']['R{}'.format(row_number_physical_resources+1)].value = get_zone(row.loc['program_id'])
                 caiso_cross_check['Filings']['S{}'.format(row_number_physical_resources+1)] = '=IF(NOT(ISBLANK(@INDIRECT("G"&ROW()))),IF(ISNA(VLOOKUP(@INDIRECT("A"&ROW()),CAISO_Sys_SP!$A:$A,1,FALSE)),"N","-"),"")'
                 caiso_cross_check['Filings']['T{}'.format(row_number_physical_resources+1)] = '=IF(AND(NOT(ISBLANK(@INDIRECT("H"&ROW()))),NOT(@INDIRECT("H"&ROW())=0)),IF(ISNA(VLOOKUP(@INDIRECT("B"&ROW()),CAISO_Sys_SP!$B:$B,1,FALSE)),"N","-"),"")'
                 caiso_cross_check['Filings']['U{}'.format(row_number_physical_resources+1)] = '=IF(NOT(ISBLANK(@INDIRECT("M"&ROW()))),IF(ISNA(VLOOKUP(@INDIRECT("C"&ROW()),CAISO_Flex_SP!$A:$A,1,FALSE)),"N","-"),"")'
@@ -927,7 +923,7 @@ class WorkbookConsolidator:
         caiso_cross_check.close()
 
         # check time and report:
-        run_time = (dt.now() - init_time).total_seconds()
+        run_time = (ts.now() - init_time).total_seconds()
         self.logger.log('Retrieved LSE Filings in {:02.0f}:{:02.0f}:{:05.2f}'.format(int(run_time/3600),int((run_time%3600)/60),run_time%60),'INFORMATION')
 
         # return all dataframes for testing:
@@ -940,7 +936,7 @@ class WorkbookConsolidator:
     # consolidate caiso supply plans into cross-check file:
     def consolidate_supply_plans(self):
         # start timer:
-        init_time = dt.now()
+        init_time = ts.now()
         self.logger.log('Copying CAISO Supply Plan into Cross-Check File','INFORMATION')
 
         # open caiso supply plan cross-check file:
@@ -969,7 +965,7 @@ class WorkbookConsolidator:
             supply_plan_system.loc[len(supply_plan_system)] = new_row
         # copy supply plan data into cross-check file:
         row_number = 2
-        for row in supply_plan_system.iterrows():
+        for _,row in supply_plan_system.iterrows():
             caiso_cross_check['CAISO_Sys_SP']['A{}'.format(row_number)] = '=CONCATENATE(INDIRECT("C"&ROW()),INDIRECT("F"&ROW()),INDIRECT("I"&ROW()))'
             caiso_cross_check['CAISO_Sys_SP']['B{}'.format(row_number)] = '=CONCATENATE(INDIRECT("C"&ROW()),INDIRECT("F"&ROW()))'
             caiso_cross_check['CAISO_Sys_SP']['C{}'.format(row_number)] = '=VLOOKUP(INDIRECT("N"&ROW()),LoadServingEntities!B:C,2,FALSE)'
@@ -980,7 +976,7 @@ class WorkbookConsolidator:
                 caiso_cross_check['CAISO_Sys_SP']['{}{}'.format(column_letter,row_number)].fill = PatternFill(start_color='DDEBF7',end_color='DDEBF7',fill_type='solid')
             column_index = 0
             for column in columns:
-                caiso_cross_check['CAISO_Sys_SP']['{}{}'.format('DEFGHILMNO'[column_index],row_number)].value = row[1].loc[column]
+                caiso_cross_check['CAISO_Sys_SP']['{}{}'.format('DEFGHILMNO'[column_index],row_number)].value = row.loc[column]
                 column_index += 1
             row_number += 1
 
@@ -1005,7 +1001,7 @@ class WorkbookConsolidator:
             supply_plan_local.loc[len(supply_plan_local)] = new_row
         row_number = 2
         # copy supply plan data into cross-check file:
-        for row in supply_plan_local.iterrows():
+        for _,row in supply_plan_local.iterrows():
             caiso_cross_check['CAISO_Flex_SP']['A{}'.format(row_number)] = '=CONCATENATE(INDIRECT("B"&ROW()),INDIRECT("E"&ROW()),INDIRECT("G"&ROW()))'
             caiso_cross_check['CAISO_Flex_SP']['B{}'.format(row_number)] = '=VLOOKUP(INDIRECT("K"&ROW()),LoadServingEntities!B:C,2,FALSE)'
             caiso_cross_check['CAISO_Flex_SP']['H{}'.format(row_number)] = '=SUMIFS(G:G,B:B,INDIRECT("B"&ROW()),E:E,INDIRECT("E"&ROW()),F:F,INDIRECT("F"&ROW()))'
@@ -1014,7 +1010,7 @@ class WorkbookConsolidator:
                 caiso_cross_check['CAISO_Flex_SP']['{}{}'.format(column_letter,row_number)].fill = PatternFill(start_color='DDEBF7',end_color='DDEBF7',fill_type='solid')
             column_index = 0
             for column in columns:
-                caiso_cross_check['CAISO_Flex_SP']['{}{}'.format('CDEFGIJKL'[column_index],row_number)].value = row[1].loc[column]
+                caiso_cross_check['CAISO_Flex_SP']['{}{}'.format('CDEFGIJKL'[column_index],row_number)].value = row.loc[column]
                 column_index += 1
             row_number += 1
 
@@ -1023,7 +1019,91 @@ class WorkbookConsolidator:
         caiso_cross_check.close()
 
         # check time and report:
-        run_time = (dt.now() - init_time).total_seconds()
+        run_time = (ts.now() - init_time).total_seconds()
         self.logger.log('Copied CAISO Supply Plan to Cross-Check File in {:02.0f}:{:02.0f}:{:05.2f}'.format(int(run_time/3600),int((run_time%3600)/60),run_time%60),'INFORMATION')
 
         return [supply_plan_system,supply_plan_local]
+
+    def check_files(self):
+        '''
+        Checks whether all files required for consolidation are available and provides a table of results
+
+        returns:
+            boolean - true if all files are available, false otherwise
+        '''
+        self.attachment_logger.load_log()
+        def set_file_status(ra_category,organization_id):
+            attachments = self.attachment_logger.data
+            filing_month = pd.to_datetime(self.configuration_options.get_option('filing_month'))
+            if ra_category in ('ra_monthly_filing','supply_plan_system','supply_plan_local'):
+                effective_date = filing_month
+            else:
+                effective_date = filing_month.replace(month=1)
+            versions = attachments.loc[
+                (attachments.loc[:,'ra_category']==ra_category) & \
+                (attachments.loc[:,'effective_date']==effective_date) & \
+                (attachments.loc[:,'organization_id']==organization_id), \
+                ['attachment_id','archive_path']
+            ]
+            versions.sort_values('archive_path',ascending=False,inplace=True)
+            file_information = pd.Series({
+                'filing_month' : filing_month,
+                'ra_category' : ra_category,
+                'effective_date' : effective_date,
+                'organization_id' : organization_id,
+                'attachment_id' : '',
+                'archive_path' : '',
+                'status' : '',
+                'compliance' : '' if ra_category=='ra_monthly_filing' else 'n/a',
+            })
+            if len(versions)>0 and Path(versions.iloc[0].loc['archive_path']).is_file():
+                file_information.loc['attachment_id'] = versions.iloc[0].loc['attachment_id']
+                file_information.loc['archive_path'] = versions.iloc[0].loc['archive_path']
+                file_information.loc['status'] = 'Ready'
+            elif ra_category=='incremental_local' and filing_month.month<=6:
+                file_information.loc['attachment_id'] = ''
+                file_information.loc['archive_path'] = ''
+                file_information.loc['status'] = 'Not Required'
+            elif ra_category=='ra_monthly_filing':
+                if len(versions)>0:
+                    file_information.loc['attachment_id'] = versions.iloc[0].loc['attachment_id']
+                    file_information.loc['archive_path'] = ''
+                    file_information.loc['status'] = 'Invalid File'
+                else:
+                    file_information.loc['attachment_id'] = ''
+                    file_information.loc['archive_path'] = ''
+                    file_information.loc['status'] = 'File Not Submitted'
+            elif self.paths.get_path(ra_category) is not None:
+                if self.paths.get_path(ra_category).is_file():
+                    file_information.loc['attachment_id'] = ''
+                    file_information.loc['archive_path'] = str(self.paths.get_path(ra_category))
+                    file_information.loc['status'] = 'Ready'
+                else:
+                    file_information.loc['attachment_id'] = ''
+                    file_information.loc['archive_path'] = ''
+                    file_information.loc['status'] = 'File Not Found'
+            else:
+                file_information.loc['attachment_id'] = ''
+                file_information.loc['archive_path'] = ''
+                file_information.loc['status'] = 'File Not Found'
+            # overwrite previous entries for a given file:
+            check_columns = ['ra_category','effective_date','organization_id']
+            previous_log_indices = (self.consolidation_logger.data.loc[:,check_columns]==file_information.loc[check_columns]).apply(all,axis='columns',result_type='reduce')
+            if previous_log_indices.sum()>0:
+                self.consolidation_logger.data.drop(index=self.consolidation_logger.data.loc[previous_log_indices,:].index,inplace=True)
+            else:
+                pass
+            self.consolidation_logger.log(file_information)
+        # get list of current lses from summary template file:
+        path = self.paths.get_path('ra_summary_template')
+        ra_summary = open_workbook(path,data_only=True,read_only=True)
+        data_range = get_data_range(ra_summary['Summary'],'A','',self.organizations)
+        active_lses = [row[0].value for row in data_range]
+        ra_categories = ['year_ahead','incremental_local','month_ahead','cam_rmr','supply_plan_system','supply_plan_local'] + ['ra_monthly_filing'] * len(active_lses)
+        organization_ids = ['CEC','CEC','CPUC','CPUC','CAISO','CAISO'] + active_lses
+        # get list of active load serving entities from summary sheet:
+        for ra_category,organization_id in zip(ra_categories,organization_ids):
+            set_file_status(ra_category,organization_id)
+        ready =  all([s in ('Ready','Not Required') for s in self.consolidation_logger.data.loc[(self.consolidation_logger.data.loc[:,'ra_category']!='ra_monthly_filing'),'status']])
+        self.consolidation_logger.commit()
+        return ready

@@ -3,7 +3,8 @@ import glob
 from pathlib import Path
 from yaml import safe_load
 from functools import reduce
-from datetime import datetime as dt
+import pandas as pd
+from pandas import Timestamp as ts
 
 class ConfigurationOptions:
     '''
@@ -70,7 +71,7 @@ class ConfigurationOptions:
                     if 'criticalities' in key:
                         self.options[key] = value.split(',')
                     elif key=='filing_month':
-                        self.options[key] = dt.strptime(value,'%b %Y')
+                        self.options[key] = pd.to_datetime(value)
                     else:
                         self.options[key] = value
         else:
@@ -102,8 +103,7 @@ class Paths:
         parameters:
             configuration_options - an instance of the ConfigurationOptions class
         '''
-        date = configuration_options.get_option('filing_month')
-        self.filing_month = date
+        self.filing_month = configuration_options.get_option('filing_month')
         self.path_strings = {
             'organizations' : configuration_options.get_option('organizations_filename'),
             'email_filter' : configuration_options.get_option('email_filter_filename'),
@@ -136,7 +136,7 @@ class Paths:
             'supply_plan_system',
             'supply_plan_local',
         ]
-    def parse_filename(self,filename:str,organization:dict=None,date:dt=None,version:int=0):
+    def parse_filename(self,filename:str,organization:dict=None,date:ts=None,version:int=0):
         '''
         parses a filename string and resolves tokens with replacement values
         based on input parameters. returns path objects defined relative to the
@@ -158,16 +158,16 @@ class Paths:
             }
         else:
             pass
-        if date is None:
+        if pd.isnull(date):
             date = self.filing_month
         else:
             pass
         replacements = {
-            '[yy]' : date.strftime('%y'),
-            '[yyyy]' : date.strftime('%Y'),
-            '[mm]' : date.strftime('%m'),
-            '[mmm]' : date.strftime('%b'),
-            '[mmmm]' : date.strftime('%B'),
+            '[yy]' : pd.to_datetime(date).strftime('%y'),
+            '[yyyy]' : pd.to_datetime(date).strftime('%Y'),
+            '[mm]' : pd.to_datetime(date).strftime('%m'),
+            '[mmm]' : pd.to_datetime(date).strftime('%b'),
+            '[mmmm]' : pd.to_datetime(date).strftime('%B'),
             '[organization_id]' : organization['id'],
             '[organization_name]' : organization['name'],
             '[version]' : '{:02.0f}'.format(version),
@@ -178,7 +178,7 @@ class Paths:
             else:
                 pass
         return Path(parsed_filename).relative_to(Path.cwd())
-    def get_path(self,path_id:str,organization:dict=None,date:dt=None,version:int=None):
+    def get_path(self,path_id:str,organization:dict=None,date:ts=None,version:int=None):
         '''
         provides parametric access to the path_strings dictionary with parsing.
 
@@ -215,7 +215,7 @@ class Paths:
         else:
             path = None
         return path
-    def most_recent_version(self,path_id:str,organization:dict=None,date:dt=None):
+    def most_recent_version(self,path_id:str,organization:dict=None,date:ts=None):
         '''
         searches directories for all versions of files matching a specified
         filename template, returning a path object pointing to the file with
@@ -242,6 +242,28 @@ class Paths:
         else:
             path = None
         return path
+    
+    def get_all_versions(self,path_id:str,organization:dict=None,date:ts=None):
+        '''
+        searches directories and returns a list of all versions of files
+        matching a specified filename template.
+
+        parameters:
+            path_id - a string matching a key in the object's paths dictionary
+            organization - a dictionary containing information about a single
+                organization
+            date - date to use when replacing date-based tokens
+        '''
+        if path_id in self.version_controlled_files:
+            filename = self.path_strings[path_id]
+            path = self.parse_filename(filename.replace('[version]','[_version_]'),organization,date)
+            versions = glob.glob(str(path).replace('[_version_]','[0-9][0-9]'))
+            versions.sort(reverse=True)
+            paths = [Path(version) for version in versions]
+        else:
+            paths = None
+        return paths
+
 
 class Organizations:
     '''
@@ -276,6 +298,8 @@ class Organizations:
         if alias in [value for values in self.alias_map.values() for value in values]:
             filter_function = lambda id: alias in self.alias_map[id]
             organization_id = next(filter(filter_function,self.alias_map.keys()))
+        elif alias in self.alias_map.keys():
+            organization_id = alias
         else:
             organization_id = ''
         return organization_id
@@ -362,7 +386,7 @@ class Organizations:
         '''
         provides a flat list of aliases for all organizations.
         '''
-        aliases = [alias for aliases in self.alias_map.values for alias in aliases]
+        aliases = [alias for aliases in self.alias_map.values() for alias in aliases]
         return aliases
     
 class EmailFilter:

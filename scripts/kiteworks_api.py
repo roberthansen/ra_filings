@@ -6,7 +6,7 @@ from random import randrange
 from datetime import datetime as dt
 from base64 import b64encode as benc
 
-class kiteworks_api_connection:
+class KiteworksAPI:
     '''
     this class establishes a connection to a kiteworks api server and includes
     methods to retrieve an authentication token via oauth2 authorization code,
@@ -237,7 +237,7 @@ class kiteworks_api_connection:
         url = self.kiteworks_hostname + '/rest/mail/{}/attachments/actions/zip'.format(email_id)
         response = requests.get(url,self.request_headers)
         return response
-    def upload_file(self,path:Path,folder:str):
+    def upload_file(self,path:Path):
         '''
         uploads a single file to the specified kiteworks folder.
 
@@ -251,7 +251,7 @@ class kiteworks_api_connection:
             file_id - a string representing the file as accessed on kiteworks.
         '''
         # helper function to break up large files into kilobyte chunks:
-        chunk_size = 1024
+        chunk_size = 1048576
         def chunkify(file_object):
             while True:
                 chunk = file_object.read(chunk_size)
@@ -271,11 +271,11 @@ class kiteworks_api_connection:
         }
         response = requests.post(url=url,headers=self.request_headers,data=post_data)
         upload_uri = response.json()['uri']
-        file_id = response.json()['id']
         # loop through and upload file chunks:
         with path.open('rb') as f:
             url = self.kiteworks_hostname + '/' + upload_uri + '?returnEntity=true'
             for i,chunk in enumerate(chunkify(f)):
+                print('Uploading chunk #{} of {}'.format(i,number_of_chunks))
                 post_data = {
                     'compressionMode' : 'NORMAL',
                     'compressionSize' : len(chunk),
@@ -287,7 +287,6 @@ class kiteworks_api_connection:
                 }
                 response = requests.post(url=url,files=files,headers=self.request_headers,data=post_data)
         return response.json()['id']
-
     def send_message(self,message:dict,paths:list):
         '''
         sends an email message with or without attachments via kiteworks' email
@@ -308,7 +307,7 @@ class kiteworks_api_connection:
             # iterate through each file (ignores non-file items):
             for path in paths:
                 if path.is_file():
-                    file_id = self.upload_file(path,self.upload_folder)
+                    file_id = self.upload_file(path)
                     message['files'].append(file_id)
         else:
             message['files'] = []

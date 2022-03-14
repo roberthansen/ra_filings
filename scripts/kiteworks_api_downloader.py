@@ -1,14 +1,12 @@
 import re
 import pandas as pd
 from pathlib import Path
-from yaml import safe_load
 from itertools import chain
-from functools import reduce
-from datetime import datetime as dt
+from pandas import Timestamp as ts
 
-from ra_logging import TextLogger,DataLogger
+from ra_logging import TextLogger,EmailLogger,AttachmentLogger,ConsolidationLogger
 from kiteworks_api import KiteworksAPI
-from configuration_options import ConfigurationOptions,Paths,EmailFilter
+from configuration_options import ConfigurationOptions,Paths,EmailFilter,Organizations
 
 class AttachmentDownloader:
     '''
@@ -29,24 +27,16 @@ class AttachmentDownloader:
         '''
         self.configuration_options = ConfigurationOptions(configuration_path)
         self.paths = Paths(self.configuration_options)
+        self.organizations = Organizations(self.paths.get_path('organizations'))
         self.email_filter = EmailFilter(self.paths.get_path('email_filter'))
         self.logger = TextLogger(
             self.configuration_options.get_option('cli_logging_criticalities'),
             self.configuration_options.get_option('file_logging_criticalities'),
             self.paths.get_path('log')
         )
-        email_log_columns = ['email_id','sender','subject','receipt_date','included','group']
-        self.email_logger = DataLogger(
-            columns=email_log_columns,
-            log_path=self.paths.get_path('email_log'),
-            delimiter=','
-        )
-        attachment_log_columns = ['email_id','attachment_id','download_path','ra_category','effective_date','organization_id','archive_path']
-        self.attachment_logger = DataLogger(
-            columns=attachment_log_columns,
-            log_path=self.paths.get_path('attachment_log'),
-            delimiter=','
-        )
+        self.email_logger = EmailLogger(log_path=self.paths.get_path('email_log'))
+        self.attachment_logger = AttachmentLogger(log_path=self.paths.get_path('attachment_log'))
+        self.consolidation_logger = ConsolidationLogger(log_path=self.paths.get_path('consolidation_log'))
         if connection is None:
             kiteworks_hostname = self.configuration_options.get_option('kiteworks_hostname')
             client_app_id = api_client['app_id']
@@ -54,14 +44,14 @@ class AttachmentDownloader:
             signature = api_client['signature']
             upload_folder = self.configuration_options.get_option('kiteworks_upload_folder')
             user_id = user['uid']
-            api_scope = 'GET/clients/* PUT/clients/* */fileTypes/* POST/files/* GET/folders/* GET/files/* PUT/files/* PATCH/files/* GET/mail/* */mediaTypes/* GET/notifications/* GET/uploads/*'
+            api_scope = '*/*/*'
             redirect_uri = kiteworks_hostname + '/rest/callback.html'
             access_token_endpoint =  kiteworks_hostname + '/oauth/token'
             self.connection = KiteworksAPI(kiteworks_hostname,client_app_id,client_app_key,signature,user_id,api_scope,redirect_uri,access_token_endpoint,upload_folder)
         else:
             self.connection = connection
 
-    def download_filtered(self,start_date,end_date):
+    def download_filtered(self,start_date:ts,end_date:ts):
         '''
         retrieves a list of emails for the inbox specified by user name when
         connecting to the kiteworks api, then loops through each email and each
@@ -92,7 +82,7 @@ class AttachmentDownloader:
             attachment_list = response.json()['data']
             response = self.connection.get_message(email_id)
             email = response.json()
-            email_date = dt.strptime(email['date'],'%Y-%m-%dT%H:%M:%S%z')
+            email_date = pd.to_datetime(email['date'])
             email_sender = email['emailReturnReceipt'][0]['user']['email']
             email_subject = email['subject']
             self.paths.get_path('downloads_external').mkdir(parents=True,exist_ok=True)
@@ -107,17 +97,19 @@ class AttachmentDownloader:
                 'email_id' : email_id,
                 'sender' : email_sender,
                 'subject' : email_subject,
-                'receipt_date' : email_date.strftime('%Y-%m-%d %H:%M:%S'),
+                'receipt_date' : email_date,
                 'included' : str(include_email),
                 'group' : sender_group,
             })
-            if email_id not in self.email_logger.data.loc[:,'email_id']:
+            if email_id not in self.email_logger.data.loc[:,'email_id'].values:
                 self.email_logger.log(email_information)
             else:
                 pass
             if include_email:
                 for attachment in filter(lambda a: file_type_check.match(a['name']),attachment_list):
-                    if attachment['attachmentId'] not in self.attachment_logger.data.loc[:,'attachment_id'] and attachment['name'] not in [p.name for p in chain(self.paths.get_path('downloads_internal').iterdir(),self.paths.get_path('downloads_external').iterdir())]:
+                    attachment_ids = self.attachment_logger.data.loc[:,'attachment_id'].values
+                    attachment_names = [p.name for p in chain(self.paths.get_path('downloads_internal').iterdir(),self.paths.get_path('downloads_external').iterdir())]
+                    if attachment['attachmentId'] not in attachment_ids and attachment['name'] not in attachment_names:
                         log_str = 'Downloading Attachment \'{}\' --- Date: {}; Subject: {}; Sender: {}'
                         self.logger.log(log_str.format(attachment['name'],email_date.strftime('%Y-%m-%d'),email_subject,email_sender),'INFORMATION')
                         if internal_address_check.match(email_sender):
@@ -147,27 +139,164 @@ class AttachmentDownloader:
         filing month
         '''
         filing_month = self.configuration_options.get_option('filing_month')
-        start_date = dt(year=filing_month.year+int((filing_month.month+10)/12)-1,month=(filing_month.month+9)%12+1,day=1)
+        start_date = ts(year=filing_month.year+int((filing_month.month+10)/12)-1,month=(filing_month.month+9)%12+1,day=1)
         end_date = start_date.replace(day=28)
         self.download_filtered(start_date,end_date)
-    def send_results(self):
+    def send_invalid_filing_notification(self,consolidation_log_entry:pd.Series):
         '''
-        checks whether a zip archive exists for the filing month set in the
-        configuration options and sends the archive via email to the resource
-        adequacy team.
+        sends an email to an lse notifying them that their filing for the current filing month did not pass validation.
+        parameters:
+            consolidation_log_entry - a row from the consolidation log
         '''
-        filing_month = self.configuration_options.get_option('filing_month')
-        invalid_filings = []
-        if len(invalid_filings)>0:
-            invalid_filings_str = '<p>The following monthly filings were not included in the summary and cross-check workbooks due to validation errors:</p><ul>{}</ul><p>Please review the filings and either send repaired files to rafiling@cpuc.ca.gov or ask the load-serving entity to re-submit.</p>'.format(''.join(['<li>'+invalid_filing+'</li>' for invalid_filing in invalid_filings]))
+        attachment_id = consolidation_log_entry.loc['attachment_id']
+        if isinstance(attachment_id,str):
+            self.attachment_logger.load_log()
+            self.email_logger.load_log()
+            attachment = self.attachment_logger.data.loc[(self.attachment_logger.data.loc[:,'attachment_id']==attachment_id),:]
+            source_email_id = attachment.iloc[0].loc['email_id']
+            organization_id = attachment.iloc[0].loc['organization_id']
+            organization = self.organizations.get_organization(organization_id)
+            organization_name = organization['name']
+            download_path = Path(attachment.iloc[0].loc['download_path'])
+            filing_month = self.configuration_options.get_option('filing_month')
+            source_email = self.email_logger.data.loc[(self.email_logger.data.loc[:,'email_id']==source_email_id),:]
+            source_email_sender = source_email.iloc[0].loc['sender']
+            source_email_receipt_date = source_email.iloc[0].loc['receipt_date']
+            message_body = re.sub('\s+',' ','''
+                <p>Hello,</p>
+                <p>The attached filing for {} ({}), which was submitted on behalf of {} ({}) on {}, and
+                determined the filing is not in compliance with CPUC resource
+                adequacy requirements. Please check the filing against {}'s
+                responsibilities and resubmit.</p>
+                <p>This message was generated automatically. Please contact the
+                Resource Adequacy Team
+                (<a href='mailto:rafiling@cpuc.ca.gov'>rafiling@cpuc.ca.gov</a>)
+                with any questions.</p>
+                <p>Sincerely,</p>
+                <p>The CPUC Resource Adequacy Team</p>
+            ''').strip()
+            if source_email_sender==organization['default_email']:
+                ccs = [self.organizations.get_organization('CPUC')['default_email']]
+            else:
+                ccs = [self.organizations.get_organization('CPUC')['default_email'],organization['default_email']]
+            message = {
+                'to' : [source_email_sender],
+                'cc' : ccs,
+                'bcc' : ['rh2@cpuc.ca.gov'],
+                'subject' : 'Invalid RA Monthly Filing: {} - {}'.format(organization_id,filing_month.strftime('%B, %Y')),
+                'body' : message_body.format(
+                    filing_month.strftime('%B, %Y'),
+                    download_path.name,
+                    organization_name,
+                    organization_id,
+                    source_email_receipt_date.strftime('%B %d, %Y'),
+                    organization_id,
+                ),
+                'acl' : 'verify_recipient',
+                'draft' : 0,
+                'includeFingerprint' : 0,
+                'isSelfReturnReceipt' : 1,
+                'notifyExpired' : 0,
+                'returnReceipts' : [],
+                'selfCopy' : 0,
+            }
+            download_paths = [download_path]
         else:
-            invalid_filings_str = ''
+            organization = self.organizations.get_organization(consolidation_log_entry.loc['organization_id'])
+            source_email_sender = organization['default_email']
+            filing_month = self.configuration_options.get_option('filing_month')
+            message_body = re.sub('\s+',' ','''
+                <p>Hello,</p>
+                <p>We were unable to find a filing submitted for {} for {}
+                ({}). Please submit a valid monthly filing as soon as
+                possible.</p>
+                <p>This message was generated automatically. Please contact the
+                Resource Adequacy Team 
+                (<a href='mailto:rafiling@cpuc.ca.gov'>rafiling@cpuc.ca.gov</a>)
+                with any questions.</p>
+                <p>Sincerely,</p>
+                <p>The CPUC Resource Adequacy Team</p>
+            ''').strip()
+            if source_email_sender==organization['default_email']:
+                ccs = [self.organizations.get_organization('CPUC')['default_email']]
+            else:
+                ccs = [self.organizations.get_organization('CPUC')['default_email'],organization['default_email']]
+            message = {
+                'to' : [source_email_sender],
+                'cc' : ccs,
+                'bcc' : ['rh2@cpuc.ca.gov'],
+                'subject' : 'Missing RA Monthly Filing: {}\'s Filing for {}'.format(organization['id'],filing_month.strftime('%B, %Y')),
+                'body' : message_body.format(
+                    filing_month.strftime('%B, %Y'),
+                    organization['name'],
+                    organization['id'],
+                ),
+                'acl' : 'verify_recipient',
+                'draft' : 0,
+                'includeFingerprint' : 0,
+                'isSelfReturnReceipt' : 1,
+                'notifyExpired' : 0,
+                'returnReceipts' : [],
+                'selfCopy' : 0,
+            }
+            download_paths = []
+        # --- overwrite recipients: ---
+        message['to'] = ['rafiling@cpuc.ca.gov']
+        message['cc'] = ['rafiling@cpuc.ca.gov']
+        # --- end overwrite ---
+        self.logger.log('Sending invalid filing notification to {}'.format(organization['id']),'INFORMATION')
+        # self.connection.send_message(message,download_paths)
+    def send_noncompliant_filing_notification(self,consolidation_log_entry:pd.Series):
+        '''
+        sends an email to an lse notifying them that their filing for the
+        current filing month was evaluated and found noncompliant.
+
+        parameters:
+            consolidation_log_entry - a row from the consolidation log
+        '''
+        attachment_id = consolidation_log_entry.loc['attachment_id']
+        self.attachment_logger.load_log()
+        self.email_logger.load_log()
+        attachment = self.attachment_logger.data.loc[(self.attachment_logger.data.loc[:,'attachment_id']==attachment_id),:]
+        source_email_id = attachment.iloc[0].loc['email_id']
+        organization_id = attachment.iloc[0].loc['organization_id']
+        organization = self.organizations.get_organization(organization_id)
+        organization_name = organization['name']
+        download_path = Path(attachment.iloc[0].loc['download_path'])
+        filing_month = attachment.iloc[0].loc['filing_month']
+        source_email = self.email_logger.data.loc[(self.email_logger.data.loc[:,'email_id']==source_email_id),:]
+        source_email_sender = source_email.iloc[0].loc['sender']
+        source_email_receipt_date = source_email.iloc[0].loc['receipt_date']
+        message_body = re.sub('\s+',' ','''
+            <p>Hello,</p>
+            <p>The Resource Adequacy Team has evaluated the attached filing
+            for {} ({}), which was submitted on behalf of {} ({}) on {}, and
+            determined the filing is not in compliance with CPUC resource
+            adequacy requirements. Please check the filing against {}'s
+            responsibilities and resubmit.</p>
+            <p>This message was generated automatically. please contact the
+            <a href='mailto:rafiling@cpuc.ca.gov'>resource adequacy team</a>
+            with any questions.</p>
+            <p>sincerely,</p>
+            <p>the cpuc resource adequacy team</p>
+        ''').strip()
+        if source_email_sender==organization['default_email']:
+            ccs = [self.organizations.get_organization('CPUC')['default_email']]
+        else:
+            ccs = [self.organizations.get_organization('CPUC')['default_email'],organization['default_email']]
         message = {
-            'to' : ['rafiling@cpuc.ca.gov'],
-            'cc' : [],
+            'to' : [source_email_sender],
+            'cc' : ccs,
             'bcc' : ['rh2@cpuc.ca.gov'],
-            'subject' : 'Resource Adequacy Filing Results for {}'.format(filing_month.strftime('%B, %Y')),
-            'body' : '<p>Hello Resource Adequacy Team,</p><p><br></p><p>Please find the summary and supply plan cross-check workbooks pertaining to the Resource Adequacy Monthly Filings for {} in the attached zip file. This file also includes each load-serving entity\'s filings, other input files, and logs generated while performing the summarization.</p>{}<p><br></p><p>This message was generated automatically by the ra_filing script.</p>'.format(filing_month.strftime('%B, %Y'),invalid_filings_str),
+            'subject' : 'Noncompliant RA Monthly Filing: {}\'s filing for {}'.format(organization_id,filing_month.strftime('%b, %y')),
+            'body' : message_body.format(
+                filing_month.strftime('%b, %y'),
+                download_path.name,
+                organization_name,
+                organization_id,
+                source_email_receipt_date.strftime('%B %d, %Y'),
+                organization_id
+            ),
             'acl' : 'verify_recipient',
             'draft' : 0,
             'includeFingerprint' : 0,
@@ -176,5 +305,127 @@ class AttachmentDownloader:
             'returnReceipts' : [],
             'selfCopy' : 0,
         }
+        # --- overwrite recipients: ---
+        message['to'] = ['rafiling@cpuc.ca.gov']
+        message['cc'] = ['rafiling@cpuc.ca.gov']
+        # --- end overwrite ---
+        self.logger.log('Sending noncompliant filing notification to {}'.format(organization['id']),'INFORMATION')
+        # self.connection.send_message(message,[download_path])
+    def send_results(self,completed:bool):
+        '''
+        checks whether a zip archive exists for the filing month set in the
+        configuration options and sends the archive via email to the resource
+        adequacy team.
+        '''
+        filing_month = self.configuration_options.get_option('filing_month')
+        self.consolidation_logger.load_log()
+        invalid_filings = self.consolidation_logger.data.loc[
+            (self.consolidation_logger.data.loc[:,'ra_category']=='ra_monthly_filing') & (
+                (self.consolidation_logger.data.loc[:,'status']=='Invalid File') | \
+                (self.consolidation_logger.data.loc[:,'status']=='File Not Found') | \
+                (self.consolidation_logger.data.loc[:,'status']=='File Not Submitted')
+            ),:
+        ]
+
+        if len(invalid_filings)>0:
+            for _,invalid_filing in invalid_filings.iterrows():
+                self.send_invalid_filing_notification(invalid_filing)
+            invalid_filings_str = re.sub('\s+',' ','''
+                <p>The following monthly filings were not included in the
+                summary and cross-check workbooks due to validation errors:</p>
+                <ul> {} </ul>
+                <p>Please review the filings and either send repaired files to
+                rafiling@cpuc.ca.gov or ask the load-serving entity to
+                resubmit.</p>
+                ''').strip().format(' '.join(['<li>'+r.loc['organization_id']+'</li>' for _,r in invalid_filings.iterrows()]))
+        else:
+            invalid_filings_str = ''
+        if completed:
+            noncompliant_filings = self.consolidation_logger.data.loc[
+                (self.consolidation_logger.data.loc[:,'compliance']=='Noncompliant') & \
+                (self.consolidation_logger.data.loc[:,'status']=='Ready') \
+                ,:
+            ]
+            if len(noncompliant_filings)>0:
+                for _,noncompliant_filing in noncompliant_filings.iterrows():
+                    self.send_noncompliant_filing_notification(noncompliant_filing)
+                noncompliant_filings_str = re.sub('\s+',' ','''
+                    <p>The following load-serving entities are being notified that
+                    their current monthly filings are non-compliant based on CPUC's
+                    resource adequacy requirements:</p>
+                    <ul> {} </ul>
+                    <p>Please follow up with the LSEs to ensure adequate resources
+                    are available for {}.</p>{}{}
+                ''').strip().format(
+                    ''.join(['<li>'+r.loc['organization_id']+'</li>' for _,r in noncompliant_filings.iterrows()]),
+                    filing_month.strftime('%B, %Y'),
+                    invalid_filings_str,
+                    noncompliant_filings_str,
+                )
+            else:
+                noncompliant_filings_str = ''
+            message = {
+                'to' : [self.organizations.get_organization('CPUC')['default_email']],
+                'cc' : [],
+                'bcc' : ['rh2@cpuc.ca.gov'],
+                'subject' : 'Resource Adequacy Filing Results for {}'.format(filing_month.strftime('%B, %Y')),
+                'body' : re.sub('\s+',' ','''
+                    <p>Hello Resource Adequacy Team,</p>
+                    <p>Please find the summary and supply plan cross-check
+                    workbooks pertaining to the Resource Adequacy Monthly
+                    Filings for {} in the attached zip file. This file also
+                    includes each load-serving entity\'s filings, other input
+                    files, and logs generated while performing the
+                    summarization.</p>{}{}
+                    <p>This message was generated automatically by the RA
+                    Monthly Filing Compliance Tool.</p>
+                ''').strip().format(filing_month.strftime('%B, %Y'),invalid_filings_str,noncompliant_filings_str),
+                'acl' : 'verify_recipient',
+                'draft' : 0,
+                'includeFingerprint' : 0,
+                'isSelfReturnReceipt' : 1,
+                'notifyExpired' : 0,
+                'returnReceipts' : [],
+                'selfCopy' : 0,
+            }
+            self.logger.log('Sending Complete Results to {}'.format(self.organizations.get_organization('CPUC')['default_email']),'INFORMATION')
+        else:
+            missing_allocations = self.consolidation_logger.data.loc[
+                (self.consolidation_logger.data.loc[:,'ra_category']!='ra_monthly_filing') & \
+                (self.consolidation_logger.data.loc[:,'status']=='File Not Found') \
+                ,:
+            ]
+            message = {
+                'to' : [self.organizations.get_organization('CPUC')['default_email']],
+                'cc' : [],
+                'bcc' : ['rh2@cpuc.ca.gov'],
+                'subject' : 'Resource Adequacy Filing Results for {}'.format(filing_month.strftime('%B, %Y')),
+                'body' : re.sub('\s+',' ','''
+                    <p>Hello Resource Adequacy Team,</p>
+                    <p>The RA Monthly Filing Compliance Tool was unable to
+                    complete its check for {} because the following files were
+                    not found:</p>
+                    <ul>{}</ul>
+                    <p>The attached zip file contains all available filings,
+                    logs, and other files relevant to the {} compliance check.
+                    Please check the formats and filenames of the missing files
+                    and send them to rafiling@cpuc.ca.gov via Kiteworks.</p>
+                    <p>This message was generated automatically by the RA
+                    Monthly Filing Compliance Tool.</p>
+                ''').strip().format(
+                    filing_month.strftime('%B, %Y'),
+                    ' '.join(['<li>'+r.loc['ra_category']+'</li>' for _,r in missing_allocations.iterrows()]),
+                    filing_month.strftime('%B'),
+                ),
+                'acl' : 'verify_recipient',
+                'draft' : 0,
+                'includeFingerprint' : 0,
+                'isSelfReturnReceipt' : 1,
+                'notifyExpired' : 0,
+                'returnReceipts' : [],
+                'selfCopy' : 0,
+            }
+            self.logger.log('Sending Partial Results to {}'.format(self.organizations.get_organization('CPUC')['default_email']),'INFORMATION')
         paths = [self.paths.get_path('results_archive')]
         self.connection.send_message(message,paths)
+        return message

@@ -3,16 +3,16 @@ import os
 import re
 import xlrd
 import shutil
-import itertools
 import pandas as pd
 from pathlib import Path
-from zipfile import ZipFile
 from openpyxl import load_workbook
+from pandas import Timestamp as ts
 from datetime import datetime as dt
+from zipfile import BadZipFile, ZipFile
 
 from configuration_options import ConfigurationOptions,Paths,Organizations
+from ra_logging import TextLogger,EmailLogger,AttachmentLogger
 from data_extraction import open_workbook,get_data_range
-from ra_logging import TextLogger,DataLogger
 
 # 2021-11-04
 # California Public Utilities Commission
@@ -39,12 +39,8 @@ class Organizer:
             self.configuration_options.get_option('file_logging_criticalities'),
             self.paths.get_path('log')
         )
-        email_log_columns = ['email_id','sender','subject','receipt_date','included','group']
-        self.email_logger = DataLogger(columns=email_log_columns,log_path=self.paths.get_path('email_log'),delimiter=',')
-        attachment_log_columns = ['email_id','attachment_id','download_path','ra_category','effective_date','organization_id','archive_path']
-        self.attachment_logger = DataLogger(columns=attachment_log_columns,log_path=self.paths.get_path('attachment_log'),delimiter=',')
-        consolidation_log_columns = ['filing_month','ra_category','effective_date','organization_id','attachment_id','archive_path','status']
-        self.consolidation_logger = DataLogger(columns=consolidation_log_columns,log_path=self.paths.get_path('consolidation_log'),delimiter=',')
+        self.email_logger = EmailLogger(log_path=self.paths.get_path('email_log'))
+        self.attachment_logger = AttachmentLogger(log_path=self.paths.get_path('attachment_log'))
 
     def validate_attachment(self,attachment_id:str):
         '''
@@ -62,100 +58,130 @@ class Organizer:
         download_path = Path(attachment.loc['download_path'])
         emails = self.email_logger.data
         email_information = emails.loc[(emails.loc[:,'email_id']==attachment.loc['email_id']),:].iloc[0]
-        log_str = 'Validating \'{}\''
-        self.logger.log(log_str.format(attachment.loc['download_path']),'INFORMATION')
+        self.logger.log('Validating Attachment: {} ({})'.format(attachment_id,download_path),'INFORMATION')
         if download_path.is_file():
             if download_path.suffix=='.xlsx':
-                try:
-                    self.logger.log('Validating Attachment: {} ({})'.format(attachment_id,download_path),'INFORMATION')
-                    with open(download_path,'rb') as f:
-                        in_mem_file = io.BytesIO(f.read())
-                    wb = load_workbook(in_mem_file,read_only=True)
-                    # monthly filing:
-                    if 'Certification' in wb.sheetnames:
-                        set_attachment_value('ra_category','ra_monthly_filing')
-                        sheet = wb['Certification']
-                        if sheet['B5'].value in self.organizations.list_all_aliases():
-                            submittal_information = {
-                                'date' : sheet['B3'].value,
-                                'organization_full' : sheet['B5'].value,
-                                'organization_id' : self.organizations.lookup_id(sheet['B5'].value),
-                                'organization_representative' : {
-                                    'name' : sheet['B21'].value,
-                                    'title' : sheet['B23'].value,
-                                    'email' : sheet['B22'].value,
-                                    'sign_date' : sheet['B24'].value,
-                                },
-                                'organization_contact' : {
-                                    'name' : sheet['B28'].value,
-                                    'title' : sheet['B29'].value,
-                                    'address' : '{}\n{}\n{}, {} {}'.format(sheet['B30'].value,sheet['B31'].value,sheet['B32'].value,sheet['B33'].value,sheet['B34'].value),
-                                    'phone' : sheet['B35'].value,
-                                    'email' : sheet['B36'].value,
-                                },
-                                'organization_backup_contact' : {
-                                    'name' : sheet['B40'].value,
-                                    'title' : sheet['B41'].value,
-                                    'phone' : sheet['B42'].value,
-                                    'email' : sheet['B43'].value,
-                                },
-                                'compliance_period' : sheet['B3'].value,
-                                'submittal_date' : sheet['B7'].value,
-                            }
-                            effective_date = self.configuration_options.get_option('filing_month')
-                            set_attachment_value('effective_date',effective_date.strftime('%Y-%m-%d'))
-                            set_attachment_value('organization_id',submittal_information['organization_id'])
+                with open(download_path,'rb') as f:
+                    in_mem_file = io.BytesIO(f.read())
+                    try:
+                        filing_month = self.configuration_options.get_option('filing_month')
+                        sheetnames = {
+                            'monthly_filing' : [
+                                'Certification',
+                                'LSE Allocations',
+                                'I_Phys_Res_Import_RA_Res',
+                                'III_Demand_Response',
+                            ],
+                            'year_ahead' : [
+                                'loadforecastinputdata',
+                                'DRforAllocation',
+                                'Flexrequirements',
+                                'Flex RMR',
+                                'Local RA-CAM-{}'.format(pd.to_datetime(filing_month).year),
+                            ],
+                            'incremental_local' : ['IncrementalLocal'],
+                            'month_ahead' : ['Monthly Tracking for CPUC'],
+                            'cam_rmr' : [
+                                'CAMRMR',
+                                'monthlytracking',
+                            ],
+                        }
+                        wb = load_workbook(in_mem_file,data_only=True,read_only=True)
+                        # monthly filing:
+                        if all([sheetname in wb.sheetnames for sheetname in sheetnames['monthly_filing']]):
+                            set_attachment_value('ra_category','ra_monthly_filing')
+                            sheet = wb['Certification']
+                            if self.organizations.lookup_id(sheet['B5'].value):
+                                submittal_information = {
+                                    'date' : sheet['B3'].value,
+                                    'organization_full' : sheet['B5'].value,
+                                    'organization_id' : self.organizations.lookup_id(sheet['B5'].value),
+                                    'organization_representative' : {
+                                        'name' : sheet['B21'].value,
+                                        'title' : sheet['B23'].value,
+                                        'email' : sheet['B22'].value,
+                                        'sign_date' : sheet['B24'].value,
+                                    },
+                                    'organization_contact' : {
+                                        'name' : sheet['B28'].value,
+                                        'title' : sheet['B29'].value,
+                                        'address' : '{}\n{}\n{}, {} {}'.format(
+                                            sheet['B30'].value,
+                                            sheet['B31'].value,
+                                            sheet['B32'].value,
+                                            sheet['B33'].value,
+                                            sheet['B34'].value
+                                        ),
+                                        'phone' : sheet['B35'].value,
+                                        'email' : sheet['B36'].value,
+                                    },
+                                    'organization_backup_contact' : {
+                                        'name' : sheet['B40'].value,
+                                        'title' : sheet['B41'].value,
+                                        'phone' : sheet['B42'].value,
+                                        'email' : sheet['B43'].value,
+                                    },
+                                    'compliance_period' : sheet['B3'].value,
+                                    'submittal_date' : sheet['B7'].value,
+                                }
+                                effective_date = submittal_information['date']
+                                if not isinstance(effective_date,dt):
+                                    effective_date = filing_month
+                                else:
+                                    pass
+                                set_attachment_value('effective_date',effective_date)
+                                set_attachment_value('organization_id',submittal_information['organization_id'])
+                            else:
+                                self.logger.log('Load Serving Entity Alias Not Recognized: \'{}\'\tAdd ID and Aliases to {}'.format(sheet['B5'].value,self.paths.get_path('organizations')),'WARNING')
+                                effective_date = filing_month
+                                set_attachment_value('effective_date',effective_date)
+                                set_attachment_value('organization_id','[LSE Alias Not Recognized]')
+                        # year ahead:
+                        elif all([sheetname in wb.sheetnames for sheetname in sheetnames['year_ahead']]) and email_information.loc['group']=='internal':
+                            set_attachment_value('ra_category','year_ahead')
+                            set_attachment_value('organization_id','CEC')
+                            if re.match(r'.*(\d{4}).*',download_path.name):
+                                effective_date = pd.to_datetime(re.match(r'.*(\d{4}).*',download_path.name).groups()[0])
+                                set_attachment_value('effective_date',effective_date)
+                            else:
+                                effective_date = filing_month
+                                set_attachment_value('effective_date',effective_date)
+                        # incremental local:
+                        elif all([sheetname in wb.sheetnames for sheetname in sheetnames['incremental_local']]) and email_information.loc['group']=='internal':
+                            set_attachment_value('ra_category','incremental_local')
+                            set_attachment_value('organization_id','CEC')
+                            if re.match(r'.*(\d{4}).*',download_path.name):
+                                effective_date = pd.to_datetime(re.match(r'.*(\d{4}).*',download_path.name).groups()[0]).replace(month=7)
+                                set_attachment_value('effective_date',effective_date)
+                            else:
+                                effective_date = filing_month.replace(month=7)
+                                set_attachment_value('effective_date',effective_date)
+                        # month ahead:
+                        elif all([sheetname in wb.sheetnames for sheetname in sheetnames['month_ahead']]) and email_information.loc['group']=='internal':
+                            set_attachment_value('ra_category','month_ahead')
+                            set_attachment_value('organization_id','CPUC')
+                            if re.match(r'.*(\d{4}).*',download_path.name):
+                                effective_date = pd.to_datetime(re.match(r'.*(\d{4}).*',download_path.name).groups()[0])
+                                set_attachment_value('effective_date',effective_date)
+                            else:
+                                effective_date = filing_month
+                                set_attachment_value('effective_date',effective_date)
+                        # cam-rmr:
+                        elif all([sheetname in wb.sheetnames for sheetname in sheetnames['cam_rmr']]) and email_information.loc['group']=='internal':
+                            effective_date = pd.to_datetime(dt.strptime(' '.join(re.match(r'(\w{3})MA(\d{2})',wb['CAMRMR']['A1'].value).groups()),'%b %y'))
+                            set_attachment_value('ra_category','cam_rmr')
+                            set_attachment_value('organization_id','CPUC')
+                            set_attachment_value('effective_date',effective_date)
                         else:
-                            self.logger.log('Load Serving Entity Alias Not Recognized: \'{}\'\tAdd ID and Aliases to {}'.format(sheet['B5'].value,self.paths.get_path('organizations')),'WARNING')
-                            effective_date = self.configuration_options.get_option('filing_month')
-                            set_attachment_value('effective_date',effective_date.strftime('%Y-%m-%d'))
-                            set_attachment_value('organization_id','[LSE Alias Not Recognized]')
-                    # incremental local:
-                    elif 'IncrementalLocal' in wb.sheetnames and email_information.loc['group']=='internal':
-                        set_attachment_value('ra_category','incremental_local')
-                        set_attachment_value('organization_id','CEC')
-                        if re.match(r'.*(\d{4}).*',download_path.name):
-                            effective_date = dt.strptime(re.match(r'.*(\d{4}).*',download_path.name).groups()[0],'%Y')
-                            set_attachment_value('effective_date',effective_date.strftime('%Y-%m-%d'))
-                        else:
-                            effective_date = self.configuration_options.get_option('filing_month').replace(month=7,day=1)
-                            set_attachment_value('effective_date',effective_date.strftime('%Y-%m-%d %H:%M:%S'))
-                    # year ahead:
-                    elif 'loadforecastinputdata' in wb.sheetnames and email_information.loc['group']=='internal':
-                        set_attachment_value('ra_category','year_ahead')
-                        set_attachment_value('organization_id','CEC')
-                        if re.match(r'.*(\d{4}).*',download_path.name):
-                            effective_date = dt.strptime(re.match(r'.*(\d{4}).*',download_path.name).groups()[0],'%Y')
-                            set_attachment_value('effective_date',effective_date.strftime('%Y-%m-%d'))
-                        else:
-                            effective_date = self.configuration_options.get_option('filing_month')
-                            set_attachment_value('effective_date',effective_date.strftime('%Y-%m-%d'))
-                    # month ahead:
-                    elif 'Monthly Tracking' in wb.sheetnames and email_information.loc['group']=='internal':
-                        set_attachment_value('ra_category','month_ahead')
-                        set_attachment_value('organization_id','CPUC')
-                        if re.match(r'.*(\d{4}).*',download_path.name):
-                            effective_date = dt.strptime(re.match(r'.*(\d{4}).*',download_path.name).groups()[0],'%Y')
-                            set_attachment_value('effective_date',effective_date.strftime('%Y-%m-%d'))
-                        else:
-                            effective_date = self.configuration_options.get_option('filing_month')
-                            set_attachment_value('effective_date',effective_date.strftime('%Y-%m-%d'))
-                    # cam-rmr:
-                    elif 'CAMRMR' in wb.sheetnames and email_information.loc['group']=='internal':
-                        effective_date = dt.strptime(wb['CAMRMR']['A1'].value,'%bMA%y')
-                        set_attachment_value('ra_category','cam_rmr')
-                        set_attachment_value('organization_id','CPUC')
-                        set_attachment_value('effective_date',effective_date.strftime('%Y-%m-%d'))
-                    else:
+                            set_attachment_value('ra_category','none')
+                            set_attachment_value('organization_id','n/a')
+                            set_attachment_value('effective_date','NAT')
+                        wb.close()
+                    except BadZipFile:
+                        self.logger.log('Unable to open xlsx file: {}'.format(download_path),'WARNING')
                         set_attachment_value('ra_category','none')
                         set_attachment_value('organization_id','n/a')
-                        set_attachment_value('effective_date','n/a')
-                    wb.close()
-                except:
-                    self.logger.log('Input Excel File Does Not Match Templates: '.format(download_path),'INFORMATION')
-                    set_attachment_value('ra_category','none')
-                    set_attachment_value('effective_date','n/a')
-                    set_attachment_value('organization_id','n/a')
+                        set_attachment_value('effective_date','NAT')
             elif download_path.suffix=='.xls' and email_information.loc['group']=='internal':
                 wb = xlrd.open_workbook(download_path)
                 sheet = wb.sheet_by_index(0)
@@ -183,17 +209,15 @@ class Organizer:
                     r'\s*lse\s*',
                     r'\s*errors.*warnings\s*',
                 ]
+                effective_date = pd.to_datetime(dt.strptime('/'.join(re.match(r'.*(\d{1,2})[_\W](\d{1,2})[_\W](\d{2}).*',download_path.name).groups()),'%m/%d/%y'))
+                effective_date = effective_date.replace(effective_date.year+int((effective_date.month+1)/12),(effective_date.month+1)%12+1,1)
                 if len(columns)>=len(system_columns) and all([re.match(s,columns[i].lower()) for i,s in enumerate(system_columns)]):
-                    effective_date = dt.strptime(re.match(r'.*(\d{1,2}_\d{1,2}_\d{2}).*',download_path.name).groups()[0],'%m_%d_%y')
-                    effective_date = effective_date.replace(effective_date.year+int((effective_date.month+1)/12),(effective_date.month+1)%12+1,1)
                     set_attachment_value('ra_category','supply_plan_system')
-                    set_attachment_value('effective_date',effective_date.strftime('%Y-%m-%d'))
+                    set_attachment_value('effective_date',effective_date)
                     set_attachment_value('organization_id','CAISO')
                 elif len(columns)>=len(local_columns) and all([re.match(s,columns[i].lower()) for i,s in enumerate(local_columns)]):
-                    effective_date = dt.strptime(re.match(r'.*(\d{1,2}_\d{2}_\d{2}).*',download_path.name).groups()[0],'%m_%d_%y')
-                    effective_date = effective_date.replace(effective_date.year+int((effective_date.month+1)/12),(effective_date.month+1)%12+1,1)
                     set_attachment_value('ra_category','supply_plan_local')
-                    set_attachment_value('effective_date',effective_date.strftime('%Y-%m-%d'))
+                    set_attachment_value('effective_date',effective_date)
                     set_attachment_value('organization_id','CAISO')
                 else:
                     self.logger.log('Input Excel File Does Not Match Templates: '.format(download_path),'INFORMATION')
@@ -217,26 +241,25 @@ class Organizer:
         checks for files in the download directories that do not appear in the
         attachment log and adds them as manual overrides.
         '''
-        time_now = dt.now()
-        for path in itertools.chain(self.paths.get_path('downloads_internal').iterdir(),self.paths.get_path('downloads_external').iterdir()):
+        ingest_timestamp = ts.now()
+        downloads_internal = self.paths.get_path('downloads_internal').iterdir()
+        downloads_external = self.paths.get_path('downloads_external').iterdir()
+        for path,sender_group in [(path,'internal') for path in downloads_internal] + [(path,'external') for path in downloads_external]:
             if path.is_file() and str(path) not in self.attachment_logger.data.loc[:,'download_path'].values:
-                email_id = '00000000-0000-0000-0000-0000{}'.format(time_now.strftime('%Y%m%d'))
+                internal_bit = int(sender_group=='internal')
+                email_id = '00000000-0000-0000-0000-{}000{}'.format(ingest_timestamp.strftime('%Y%m%d'),internal_bit)
                 if email_id not in self.email_logger.data.loc[:,'email_id'].values:
-                    if path.parent==self.paths.get_path('downloads_internal'):
-                        sender_group = 'internal'
-                    else:
-                        sender_group = 'external'
                     email_information = pd.Series({
                         'email_id' : email_id,
                         'sender' : 'manual_download',
                         'subject' : 'n/a',
-                        'receipt_date' : time_now.strftime('%Y-%m-%d %H:%M:%S'),
+                        'receipt_date' : ingest_timestamp,
                         'included' : True,
                         'group' : sender_group,
                     })
                     self.email_logger.log(email_information)
                 attachment_index = len(self.attachment_logger.data.loc[(self.attachment_logger.data.loc[:,'email_id']==email_id),'attachment_id'])
-                attachment_id = '{}{:024.0f}'.format(time_now.strftime('%Y%m%d'),attachment_index)
+                attachment_id = '{}{:024.0f}'.format(ingest_timestamp.strftime('%Y%m%d'),attachment_index)
                 attachment_information = pd.Series({
                     'email_id' :email_id,
                     'attachment_id' : attachment_id,
@@ -265,21 +288,24 @@ class Organizer:
         which don't yet have one.
         '''
         columns = self.attachment_logger.data.columns
-        attachments = self.attachment_logger.data.merge(self.email_logger.data.loc[:,['email_id','receipt_date']],on='email_id').fillna('n/a')
-        attachments.loc[:,'version'] = \
-            attachments.sort_values(['ra_category','organization_id','effective_date','receipt_date']) \
+        self.attachment_logger.data = self.attachment_logger.data.merge(self.email_logger.data.loc[:,['email_id','receipt_date']],on='email_id')
+        self.attachment_logger.data.loc[:,'version'] = \
+            self.attachment_logger.data.sort_values(['ra_category','organization_id','effective_date','receipt_date']) \
             .groupby(['ra_category','organization_id','effective_date']).cumcount()
         def get_archive_path(r):
             ra_category = r.loc['ra_category']
             organization = self.organizations.get_organization(r.loc['organization_id'])
-            if r.loc['effective_date'] not in ('','n/a'):
-                effective_date = dt.strptime(r.loc['effective_date'],'%Y-%m-%d')
+            if organization:
+                if r.loc['effective_date'] not in ('','n/a'):
+                    effective_date = r.loc['effective_date']
+                else:
+                    effective_date = self.configuration_options.get_option('filing_month')
+                version = r.loc['version']
+                archive_path = str(self.paths.get_path(ra_category,organization=organization,date=effective_date,version=version))
             else:
-                effective_date = self.configuration_options.get_option('filing_month')
-            version = r.loc['version']
-            archive_path = str(self.paths.get_path(ra_category,organization=organization,date=effective_date,version=version))
+                archive_path = ''
             return archive_path
-        self.attachment_logger.data.loc[:,'archive_path'] = attachments.apply(get_archive_path,axis='columns')
+        self.attachment_logger.data.loc[:,'archive_path'] = self.attachment_logger.data.apply(get_archive_path,axis='columns')
         self.attachment_logger.data = self.attachment_logger.data.loc[:,columns]
         self.attachment_logger.commit()
     
@@ -308,9 +334,29 @@ class Organizer:
     
     def copy_rename_all(self):
         '''
-        copies all downloaded attachments to their archive locations
+        copies all current attachments to their archive locations
         '''
-        for attachment_id in self.attachment_logger.data.loc[:,'attachment_id']:
+        self.attachment_logger.load_log()
+        filing_month = pd.to_datetime(self.configuration_options.get_option('filing_month'))
+        current_attachment_ids = self.attachment_logger.data.loc[
+            (
+                (
+                    (self.attachment_logger.data.loc[:,'ra_category']=='ra_monthly_filing') | \
+                    (self.attachment_logger.data.loc[:,'ra_category']=='supply_plan_system') | \
+                    (self.attachment_logger.data.loc[:,'ra_category']=='supply_plan_local') | \
+                    (self.attachment_logger.data.loc[:,'ra_category']=='cam_rmr')
+                ) & \
+                (self.attachment_logger.data.loc[:,'effective_date']==filing_month)
+            ) | \
+            (
+                (
+                    (self.attachment_logger.data.loc[:,'ra_category']=='year_ahead') | \
+                    (self.attachment_logger.data.loc[:,'ra_category']=='incremental_local') | \
+                    (self.attachment_logger.data.loc[:,'ra_category']=='month_ahead')
+                ) & \
+                (self.attachment_logger.data.loc[:,'effective_date']==filing_month.replace(month=1))
+            ),'attachment_id']
+        for attachment_id in current_attachment_ids:
             self.copy_rename(attachment_id)
 
     def unzip(self,path:Path):
@@ -369,89 +415,6 @@ class Organizer:
         else:
             pass
     
-    def check_files(self):
-        '''
-        Checks whether all files required for consolidation are available and provides a table of results
-
-        returns:
-            boolean - true if all files are available, false otherwise
-            dataframe - contains table of files and statuses
-        '''
-        def set_file_status(ra_category,organization_id):
-            attachments = self.attachment_logger.data
-            filing_month = self.configuration_options.get_option('filing_month')
-            if ra_category in ('ra_monthly_filing','supply_plan_system','supply_plan_local'):
-                effective_date = filing_month
-            else:
-                effective_date = filing_month.replace(month=1)
-            versions = attachments.loc[
-                (attachments.loc[:,'ra_category']==ra_category) & \
-                (attachments.loc[:,'effective_date']==effective_date.strftime('%Y-%m-%d')) & \
-                (attachments.loc[:,'organization_id']==organization_id), \
-                ['attachment_id','archive_path']
-            ]
-            versions.sort_values('archive_path',ascending=False,inplace=True)
-            file_information = pd.Series({
-                'filing_month' : filing_month.strftime('%Y-%m-%d'),
-                'ra_category' : ra_category,
-                'effective_date' : effective_date.strftime('%Y-%m-%d'),
-                'organization_id' : organization_id,
-                'attachment_id' : '',
-                'archive_path' : '',
-                'status' : '',
-            })
-            if len(versions)>0 and Path(versions.iloc[0].loc['archive_path']).is_file():
-                file_information.loc['attachment_id'] = versions.iloc[0].loc['attachment_id']
-                file_information.loc['archive_path'] = versions.iloc[0].loc['archive_path']
-                file_information.loc['status'] = 'Ready'
-            elif ra_category=='incremental_local' and filing_month.month<=6:
-                file_information.loc['attachment_id'] = ''
-                file_information.loc['archive_path'] = ''
-                file_information.loc['status'] = 'Not Required'
-            elif ra_category=='ra_monthly_filing':
-                if len(versions)>0:
-                    file_information.loc['attachment_id'] = versions.iloc[0].loc['attachment_id']
-                    file_information.loc['archive_path'] = ''
-                    file_information.loc['status'] = 'Invalid File'
-                else:
-                    file_information.loc['attachment_id'] = ''
-                    file_information.loc['archive_path'] = ''
-                    file_information.loc['status'] = 'File Not Submitted'
-            elif self.paths.get_path(ra_category) is not None:
-                if self.paths.get_path(ra_category).is_file():
-                    file_information.loc['attachment_id'] = ''
-                    file_information.loc['archive_path'] = str(self.paths.get_path(ra_category))
-                    file_information.loc['status'] = 'Ready'
-                else:
-                    file_information.loc['attachment_id'] = ''
-                    file_information.loc['archive_path'] = ''
-                    file_information.loc['status'] = 'File Not Found'
-            else:
-                file_information.loc['attachment_id'] = ''
-                file_information.loc['archive_path'] = ''
-                file_information.loc['status'] = 'File Not Found'
-            # overwrite previous entries for a given file:
-            check_columns = ['filing_month','ra_category','effective_date','organization_id']
-            previous_log_indices = (self.consolidation_logger.data.loc[:,check_columns]==file_information.loc[check_columns]).apply(all,axis='columns',result_type='reduce')
-            if previous_log_indices.sum()>0:
-                self.consolidation_logger.data.drop(index=self.consolidation_logger.data.loc[previous_log_indices,:].index,inplace=True)
-            else:
-                pass
-            self.consolidation_logger.log(file_information)
-        # get list of current lses from summary template file:
-        path = self.paths.get_path('ra_summary_template')
-        ra_summary = open_workbook(path,data_only=True,read_only=True)
-        data_range = get_data_range(ra_summary['Summary'],'A','',self.organizations)
-        active_lses = [row[0].value for row in data_range]
-        ra_categories = ['year_ahead','incremental_local','month_ahead','cam_rmr','supply_plan_system','supply_plan_local'] + ['ra_monthly_filing'] * len(active_lses)
-        organization_ids = ['CEC','CEC','CPUC','CPUC','CAISO','CAISO'] + active_lses
-        # get list of active load serving entities from summary sheet:
-        for ra_category,organization_id in zip(ra_categories,organization_ids):
-            set_file_status(ra_category,organization_id)
-        ready =  all([s in ('Ready','Not Required') for s in self.consolidation_logger.data.loc[(self.consolidation_logger.data.loc[:,'ra_category']!='ra_monthly_filing'),'status']])
-        self.consolidation_logger.commit()
-        return ready
-    
     def organize(self):
         '''
         calls each of the main methods of the ra_organizer method in sequence
@@ -491,14 +454,18 @@ class Organizer:
             ('attachment_log','CPUC'),
             ('consolidation_log','CPUC'),
         ] + list(zip(['ra_monthly_filing'] * len(active_lses),active_lses))
-        paths = [self.paths.get_path(path_id[0],organization=self.organizations.get_organization(path_id[1])) for path_id in path_ids] 
+        paths = [self.paths.get_all_versions(path_id[0],organization=self.organizations.get_organization(path_id[1])) for path_id in path_ids] 
         if self.paths.get_path('results_archive').exists():
             self.paths.get_path('results_archive').unlink()
         else:
             pass
         with ZipFile(self.paths.get_path('results_archive'),'x') as archive:
-            for path in paths:
-                if path is not None and path.is_file():
-                    archive.write(path,arcname=str(path))
-                else:
-                    pass
+            configuration_path = self.configuration_options.configuration_path.relative_to(Path.cwd())
+            archive.write(configuration_path,arcname=str(configuration_path))
+            for versions in paths:
+                    if versions is not None:
+                        for version in versions:
+                            if version is not None and version.is_file():
+                                archive.write(version,arcname=str(version))
+                            else:
+                                pass
