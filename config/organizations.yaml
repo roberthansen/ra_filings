@@ -1,5 +1,5 @@
 # INSTRUCTIONS: This file contains representations of each Load Serving Entity
-# (LSE). LSEs are identified by their standard abbreviation, followed by a
+# (LSE). LSEs are identified by their standard abbreviation, and have a
 # list of known aliases such the full name or alternative abbreviations. When
 # the ra_reports script detects the name given in a monthly report does not
 # match any known aliases, the alias should be added to the appropriate list.
@@ -7,30 +7,45 @@
 # added as a new item with its own list of likely aliases.
 ---
 CPUC:
+  scid:
+  pal_id:
   type: regulatory agency
   aliases:
     - California Public Utilities Commission
     - PUC
+  default_email: rafiling@cpuc.ca.gov
 CEC:
+  scid:
+  pal_id:
   type: regulatory agency
   aliases:
     - California Energy Commission
     - Energy Commission
+  default_email: ''
 CAISO:
+  scid:
+  pal_id:
   type: independent system operator
   aliases:
     - California Independent System Operator
     - California ISO
     - Independent System Operator
     - ISO
+  default_email: ''
 PGE:
+  scid: LPGE
+  pal_id: 39
   type: investor-owned utility
   aliases:
     - Pacific Gas & Electric
     - Pacific Gas & Electric Company
     - Pacific Gas and Electric
     - Pacific Gas and Electric Company
+    - PG&E
+  default_email: 'fong.wan@pge.com'
 SDGE:
+  scid: LSDGE
+  pal_id: 902
   type: investor-owned utility
   aliases:
     - San Diego Gas & Electric
@@ -39,382 +54,636 @@ SDGE:
     - San Diego Gas and Electric Co.
     - San Diego Gas and Electric
     - San Diego Gas and Electric Company
+    - SDG&E
+    - SDG3
+  default_email: ''
 SCE:
+  scid: LSCE
+  pal_id: 338
   type: investor-owned utility
   aliases:
     - Southern California Edison
     - SoCal Edison
     - Edison
+    - SCE1
+  default_email: 'william.v.walsh@sce.com'
 3PR:
+  scid: LTPES
+  pal_id: 923
   type: load-serving entity
   aliases:
     - 3 Phases Energy Services
     - 3 Phases Renewables Inc
+  default_email: ''
 ANHM:
+  scid:
+  pal_id:
   type: load-serving entity
   aliases:
     - City of Anaheim
     - Anaheim
+  default_email: 'drobertson@applevalley.org'
 APN:
+  scid: LAPNM
+  pal_id: 1396
   type: load-serving entity
   aliases:
     - American PowerNet Management
+  default_email: ''
 APXG:
+  scid: 
+  pal_id: 913
   type: load-serving entity
   aliases:
     - Bear Valley Electric Services
+  default_email: ''
 AVCE:
+  scid: LTOAV
+  pal_id: 244
   type: load-serving entity
   aliases:
     - Apple Valley Choice Energy
     - Apple Valley Clean Energy
+  default_email: ''
 AZCO:
+  scid:
+  pal_id:
   type: load-serving entity
   aliases:
     - Arizona Electric Power Cooperative, Inc.
     - Arizona Electric Power Cooperative
+  default_email: ''
 AZUA:
+  scid:
+  pal_id:
   type: load-serving entity
   aliases:
     - City of Azusa
     - Azusa
+  default_email: ''
 BAN1:
+  scid:
+  pal_id:
   type: load-serving entity
   aliases:
     - City of Banning
     - Banning
+  default_email: ''
 BCE:
+  scid:
+  pal_id:
   type: load-serving entity
   aliases:
     - Butte Choice Energy
+  default_email: ''
 CCSF:
+  scid:
+  pal_id:
   type: load-serving entity
   aliases:
     - City and County of San Francisco
     - San Francisco
+  default_email: ''
 CDWR:
+  scid:
+  pal_id:
   type: load-serving entity
   aliases:
     - California Department of Water Resources
     - CDWR
+  default_email: ''
 CEA:
+  scid: LCLEA
+  pal_id: 235
   type: load-serving entity
   aliases:
     - Clean Energy Alliance
     - The Clean Energy Alliance
+  default_email: 'ceo@thecleanenergyalliance.org'
 CEI:
+  scid: LCECO
+  pal_id: 917
   type: load-serving entity
   aliases:
     - Commerce Energy, Inc. (1092)
     - Commerce Energy, Inc.
     - Commerce Energy
+  default_email: ''
 CES:
+  scid: LCEM1
+  pal_id: 936
   type: load-serving entity
   aliases:
     - Commercial Energy of California
     - Commercial Energy of Montana
+  default_email: ''
 CLTN:
+  scid:
+  pal_id:
   type: load-serving entity
   aliases:
     - City of Colton
     - Colton
+  default_email: ''
 CNE:
+  scid:
+  pal_id: 920
   type: load-serving entity
   aliases:
     - Constellation New Energy, Inc.
     - Constellation NewEnergy, Inc.
     - Constellation New Energy
+  default_email: 'nina.jezic@constellation.com'
 COBP:
+  scid: LBALD
+  pal_id: 238
   type: load-serving entity
   aliases:
     - City of Baldwin Park
     - Baldwin Park
     - Baldwin Park Resident Owned Utility District
+  default_email: ''
 COIN:
+  scid:
+  pal_id:
   type: load-serving entity
   aliases:
     - City of Industry
     - Industry
+  default_email: ''
 COMMERCE:
+  scid:
+  pal_id: 239
   type: load-serving entity
   aliases:
     - City of Commerce
     - Commerce
+  default_email: ''
 COR1:
+  scid:
+  pal_id: 924
   type: load-serving entity
   aliases:
     - City of Corona Department of Water & Power
     - Corona Department of Water & Power
     - Corona
+  default_email: ''
 COSB:
+  scid: LCOSB
+  pal_id:
   type: load-serving entity
   aliases:
     - City of Solana Beach
+  default_email: ''
 CPA:
+  scid: LCALP
+  pal_id: 916
   type: load-serving entity
   aliases:
     - Calpine PowerAmerica-CA, L.L.C. (1362)
     - Calpine PowerAmerica-CA, LLC
     - Calpine PowerAmerica-CA
     - Calpine PowerAmerica
+  default_email: ''
 CPASC:
+  scid: LLACC
+  pal_id: 204
   type: load-serving entity
   aliases:
     - Clean Power Alliance of Southern California
+  default_email: 'nkeefer@cleanpoweralliance.org'
 CPSF:
+  scid: LCPSF
+  pal_id:
   type: load-serving entity
   aliases:
     - Clean Power San Francisco
     - CleanPowerSF
+  default_email: 'mhyams@sfwater.org'
 CRLC:
+  scid:
+  pal_id:
   type: load-serving entity
   aliases:
     - City of Cerritos
     - Cerritos
+  default_email: ''
+DCE:
+  scid: LDCCE
+  pal_id: 223
+  type: load-serving entity
+  aliases:
+    - Desert Community Energy
+  default_email: 'tkirk@cvag.org'
 DEB:
+  scid: LSEL1
+  pal_id: 921
   type: load-serving entity
   aliases:
     - Direct Energy, L.L.C.
     - Direct Energy Business, LLC
     - Direct Energy
-DCE:
-  type: load-serving entity
-  aliases:
-    - Desert Community Energy
+  default_email: 'jay.robertson@nrg.com'
 EBCE:
+  scid: LEBCE
+  pal_id: 201
   type: load-serving entity
   aliases:
     - East Bay Community Energy
+  default_email: ''
 EIPS:
+  scid: LEDF
+  pal_id: 942
   type: load-serving entity
   aliases:
     - EDF Industrial Power Services (CA), LLC
     - EDF Industrial Power Services, LLC
     - EDF Industrial Power Services LLC
     - EDF Industrial Power Services
+  default_email: 'deborah.merril@edftrading.com'
 HANFORD:
+  scid: LHANF
+  pal_id:
   type: load-serving entity
   aliases:
     - City of Hanford
     - Hanford
+  default_email: ''
 KCCP:
+  scid: LKING
+  pal_id: 218
   type: load-serving entity
   aliases:
     - King City Community Power
+  default_email: 'regulatory@pilotpowergroup.com'
 KIRK:
+  scid:
+  pal_id:
   type: load-serving entity
   aliases:
     - Kirkwood Meadows
     - Kirkwood
+  default_email: ''
 LAGRA:
+  scid:
+  pal_id: 997
   type: load-serving entity
   aliases:
     - Agera Energy
+  default_email: ''
 LBART:
+  scid:
+  pal_id:
   type: load-serving entity
   aliases:
     - Bay Area Rapid Transit
+  default_email: ''
 LCE:
+  scid: LANC
+  pal_id: 998
   type: load-serving entity
   aliases:
     - Lancaster Choice Energy
+  default_email: 'jcaudle@cityoflancasterca.org'
 LLATH:
+  scid:
+  pal_id:
   type: load-serving entity
   aliases:
     - Lathrop Irrigation District
+  default_email: ''
 LMWSC:
+  scid:
+  pal_id:
   type: load-serving entity
   aliases:
     - Metropolitan Water District
+  default_email: ''
 LPECH:
+  scid:
+  pal_id:
   type: load-serving entity
   aliases:
     - Pechanga Tribal Utility
     - Pechanga
+  default_email: ''
+LPH:
+  scid: LLPH
+  pal_id: 1372
+  type: load-serving entity
+  aliases:
+    - Liberty Power Holdings
+    - LPHC
 MBCPA:
+  scid: LMBCP
+  pal_id:
   type: load-serving entity
   aliases:
     - Monterey Bay Community Power Authority
     - Central Coast Community Energy
+  default_email: 'ddyconeal@3ce.org'
 MCE:
+  scid: LMCE
+  pal_id: 939
   type: load-serving entity
   aliases:
     - Marin Energy Authority
     - Marin Clean Energy
+  default_email: 'dweisz@mcecleanenergy.org'
 NCPA:
+  scid:
+  pal_id:
   type: load-serving entity
   aliases:
     - NCPA
+  default_email: ''
 NES:
+  scid: LSEES
+  pal_id: 1364
   type: load-serving entity
   aliases:
     - Calpine Energy Solutions, LLC
+  default_email: 'drake.welch@calpinesolutions.com'
 OCPA:
+  scid: LOCPA
+  pal_id: 243
   type: load-serving entity
   aliases:
     - Orange County Power Authority
+    - Orange County Power Authrotity
+  default_email: ''
 PALMDALE:
+  scid: LPDAL
+  pal_id: 241
   type: load-serving entity
   aliases:
+    - Energy for Palmdale's Independent Choice
     - City of Palmdale
     - Palmdale
+  default_email: 'rperez@cityofpalmdale.org'
 PASA:
+  scid:
+  pal_id:
   type: load-serving entity
   aliases:
     - Pasadena Water & Power
     - Pasadena
+  default_email: ''
 PCEA:
+  scid: LPCEA
+  pal_id: 863
   type: load-serving entity
   aliases:
     - Peninsula Clean Energy Authority
+  default_email: ''
 PIONEER:
+  scid: LPCCE
+  pal_id: 214
   type: load-serving entity
   aliases:
     - Pioneer Community Energy
+  default_email: 'don.eckert@pioneercommunityenergy.ca.gov'
 POMONA:
+  scid: LPOMO
+  pal_id: 237
   type: load-serving entity
   aliases:
     - Pomona Choice Energy
     - City of Pomona
     - Pomona
+  default_email: 'james_makshanoff@ci.pomona.ca.us'
 PPG:
+  scid: LPIPO
+  pal_id: 915
   type: load-serving entity
   aliases:
     - Pilot Power Group, Inc.
     - Pilot Power Group Inc.
     - Pilot Power Group
     - PILOT POWER GROUP, LLC
+  default_email: 'regulatory@pilotpowergroup.com'
 PRIME:
+  scid: LPICO
+  pal_id: 212
   type: load-serving entity
   aliases:
     - Pico Rivera Innovative Municipal Energy
     - Pico Rivera Innovative Metropolitan Energy
+  default_email: 'scarmona@pico-rivera.org'
 PSTN:
+  scid:
+  pal_id:
   type: load-serving entity
   aliases:
     - Port of Stockton
+  default_email: ''
 PWPA:
+  scid:
+  pal_id:
   type: load-serving entity
   aliases:
     - Power and Water Resources Pooling Authority
+  default_email: ''
 RCEA:
+  scid: LRCEA
+  pal_id: 213
   type: load-serving entity
   aliases:
     - Redwood Coast Energy Authority
+  default_email: 'mmarshall@redwoodenergy.org'
 RCMU:
+  scid:
+  pal_id:
   type: load-serving entity
   aliases:
     - Rancho Cucamonga Municipal Utility
+  default_email: ''
 RMEA:
+  scid: LRMEA
+  pal_id: 207
   type: load-serving entity
   aliases:
     - Rancho Mirage Energy Authority
+  default_email: 'isaiahh@ranchomirageca.gov'
 RVSD:
+  scid:
+  pal_id:
   type: load-serving entity
   aliases:
     - Riverside Public Utility
     - Riverside
+  default_email: ''
 SBCE:
+  scid: LSBCE
+  pal_id: 236
   type: load-serving entity
   aliases:
     - Santa Barbara Clean Energy
     - City of Santa Barbara d/b/a Santa Barbara Clean Energy
+  default_email: ''
 SDCP:
+  scid: LSDCE
+  pal_id: 234
   type: load-serving entity
   aliases:
     - San Diego Community Power
+  default_email: ''
 SEEV:
+  scid:
+  pal_id:
   type: load-serving entity
   aliases:
     - City of Victorville
     - Victorville
+  default_email: ''
 SEMV:
+  scid:
+  pal_id:
   type: load-serving entity
   aliases:
     - Moreno Valley
+  default_email: ''
 SENA:
+  scid: LCRLL
+  pal_id: 929
   type: load-serving entity
   aliases:
     - Shell Energy North America
     - SENA
     - Shell Energy North America (US), L.P. d/b/a Shell Energy Solutions
+    - SHELL ENERGY NORTH AMERICA (US), L.P. D/B/A SHELL ENERGY SOLUTIONS
+  default_email: 'mike.davis@shell.com'
 SJCE:
+  scid: LSJCE
+  pal_id: 224
   type: load-serving entity
   aliases:
     - San Jose Clean Energy
+  default_email: 'jeanne.sole@sanjoseca.gov'
 SJP:
+  scid: LSAJP
+  pal_id: 205
   type: load-serving entity
   aliases:
     - San Jacinto Power
+  default_email: 'rjohnson@sanjacintoca.gov'
 SNCL:
+  scid:
+  pal_id:
   type: load-serving entity
   aliases:
     - Silicon Valley Power
+  default_email: ''
 SOMA:
+  scid: LSOMA
+  pal_id: 707
   type: load-serving entity
   aliases:
     - Sonoma Clean Power Authority
     - Sonoma Clean Power
+  default_email: 'mkoszalka@sonomacleanpower.org'
 SVCEA:
+  scid: LSVCE
+  pal_id: 215
   type: load-serving entity
   aliases:
     - Silicon Valley Clean Energy Authority
     - Silicon Valley Clean Energy
+  default_email: 'girish@svcleanenergy.org'
 TNG:
+  scid: LTNGI
+  pal_id: 913
   type: load-serving entity
   aliases:
     - Tiger Natural Gas, Inc.
     - Tiger Natural Gas
     - Tiger  Natural Gas, Inc.
+  default_email: ''
 UCOP:
+  scid: LUCOP
+  pal_id: 510
   type: load-serving entity
   aliases:
+    - University of California
+    - UC System
     - UC Office of the President
     - The Regents of the University of California
+    - Regents of the University of California
+  default_email: ''
 VCEA:
+  scid: LVCEA
+  pal_id: 203
   type: load-serving entity
   aliases:
     - Valley Clean Energy Alliance
+  default_email: 'larry.chen@smud.org'
 VERN:
+  scid:
+  pal_id:
   type: load-serving entity
   aliases:
     - City of Vernon
     - Vernon
+  default_email: ''
 WCE:
+  scid: LWSTN
+  pal_id: 947
   type: load-serving entity
   aliases:
     - Western Community Energy
+  default_email: ''
 WDOE:
+  scid:
+  pal_id:
   type: load-serving entity
   aliases:
     - WAPA - WDOE
     - WDOE
+  default_email: ''
 WEPA:
+  scid:
+  pal_id:
   type: load-serving entity
   aliases:
     - Eastside Power Authority
+  default_email: ''
 WFLS:
+  scid:
+  pal_id:
   type: load-serving entity
   aliases:
     - WAPA - WFLS
     - WFLS
+  default_email: ''
 WNAS:
+  scid:
+  pal_id:
   type: load-serving entity
   aliases:
     - WAPA - WNAS
     - WNAS
+  default_email: ''
 WPUL:
+  scid:
+  pal_id:
   type: load-serving entity
   aliases:
     - WAPA - WPUL
     - WPUL
+  default_email: ''
 WSLW:
+  scid:
+  pal_id:
   type: load-serving entity
   aliases:
     - WAPA - WSLW
     - WSLW
+  default_email: ''
 VBOB:
+  scid:
+  pal_id: 928
   type: load-serving entity
   aliases:
     - Valley Electric Association
+  default_email: ''
 ...
