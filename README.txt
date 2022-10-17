@@ -6,31 +6,47 @@ Robert Hansen, PE
 
 
 Introduction:
-The Resource Adequacy Monthly/Annual Filing Validation Tool consists of four
-Python scripts and two configuration files:
-  Scripts:
+The Resource Adequacy Monthly Filing Validation Tool consists of eleven Python
+scripts, six Windows batch (.bat) scripts, and three configuration files:
+  ./scripts/
     + ra_filings.py
-    + kiteworks_scraper.py
-    + ra_filing_organizer.py
+    + california_state_holidays.py
+    + configuration_options.py
+    + data_extraction.py
+    + export_to_ezdb.py
+    + kiteworks_api.py
+    + kiteworks_api_downloader.py
+    + login.py
     + ra_consolidator.py
-    + logger.py
-  Configuration Files:
+    + ra_logging.py
+    + ra_organizer.py
+  ./
+    + ConsolidateRAFilings.bat
+    + DailyRAFilings.bat
+    + DownloadRAFilings.bat
+    + ExportRAFilings.bat
+    + NotifyRAFilings.bat
+    + RunRAFilings.bat
+  ./config/
     + ra_filings_config.yaml
-    + lse_map.yaml
+    + organizations.yaml
     + email_filter.yaml
 
 The sections following discuss the usage of each of these components of the
 tool. See comments within the scripts for additional information.
 
-Finally, an additional file with login information is written in Python and
-consists of a single dictionary containing a user id and password for accessing
-Kiteworks. This information may be entered into the command line as an
-alternative.
+The tool is encapsulated in a portable environment called an
+Anaconda Project. The Anaconda Project definition consists of an additional
+configuration file, anaconda-project.yml, which specifies the Python libraries
+and versions required to run this tool. In addition, the project manages encrypted
+environmental variables, including Kiteworks login information, which allows
+the scripts to run automatically, securely, and without human intervention once
+the variables are set.
 
 
 Quick Start Guide:
-Update the filing_month value in ra_filings_config.yaml and run the following:
-  > python ra_reports.py
+Check and update values in ra_filings_config.yaml and run the following:
+  > anaconda-project run daily
 
 
 Configuration File (ra_filings_config.yaml):
@@ -43,6 +59,13 @@ parameters that define the python scripts' behavior:
       used to open corresponding annual and monthly reports and filings.
       Quotation marks are not needed when inputting the date into the
       configuration file.
+  planning_reserve_margin -- The margin of additional required capacity beyond
+      forecasted load, for example 0.15 meaning LSEs will be required to
+      provide 15% more capacity than the forecast load for a given month.
+  demand_response_multiplier -- The coefficient to apply to capacity provided
+      through demand response programs when assessing supply against forecast
+      load
+  transmission_loss_adder_pge --  The coefficient to apply to 
   lse_map_file -- The location of the lse map file, such as
           "'C:\Users\Myself\ResourceAdequacy\lse_map.csv'"
       Single quotation marks around paths are recommended, especially if the
@@ -181,16 +204,55 @@ report_directory and renamed according to the report's contents and the
 filename_template.
 
 Resource Adequacy Consolidator (ra_consolidator.py)
-This script copies data from various forecast and compliance filings into a
-summary workbook which performs validation checks.
+This script performs data validation and copies data from various forecast and
+compliance filings into two summary workbooks.
 
 
 Login Information (login.py):
-This Python file contains only a single dictionary with the following form,
-used when automatically logging into Kiteworks:
+This Python file retrieves login information from environment variables set
+when 'anaconda-project run' is executed. The login information object is loaded
+into a dict for use in the Kiteworks webscraper:
   login_information = {
-    'uid' : '[3-letter CPUC user ID]',
+    'uid' : '[3-letter CPUC user ID or email address]',
     'passwd' : '[CPUC user password]',
   }
-The file is stored as plain text, thus posing a security risk. Alternative
-methods for automating the login process are being investigated.
+Persistent storage of the login credentials are handled through Anaconda
+Project's  environment variable tools, which provides access to the host
+operating system's secure, encrypted keyring. The following commands, executed
+in PowerShell from the project directory with a conda environment activate
+un-sets the user id and password, respectively:
+  > anaconda-project set-variable KITEWORKS_UID_SECRET=[user id]
+  > anaconda-project set-variable KITEWORKS_PASSWD_SECRET=[password]
+After un-setting the login credential variables, they must be re-input by
+executing the following command and inputting the new values in the prompt:
+  > anaconda-project prepare
+
+
+Troubleshooting:
+Here are a few issues that have come up during usage and their somewhat
+unintuitive solutions.
+
+SSL Certification - Python uses the "certifi" library to handle ssl/tsl
+certification. The library does not automatically retrieve the certificate from
+kwftp.cpuc.ca.gov, so it is necessary to copy the certificate from a web browser
+when using a fresh conda environment, when the current certificate expires, or
+when the website obatins a new certificate. The certificate for
+kwftp.cpuc.ca.gov must be copied into the file located at
+"./envs/default/Lib/site-packages/certifi/cacert.pem"
+
+Excel File GUIDs - In some cases, Load Serving Entities have submitted
+their monthly resource adequacy filings in Excel files with a Globally Unique
+Identifier (GUID, aka UUID) code containing lower-case letters. While the GUID
+specification generally permits hexidecimal values including either upper- or
+lower-case letters, the version of openpyxl used during development includes
+a regular expression (regex) test that includes only upper-case letters, thus, while
+Microsoft Excel has no trouble opening the file, the Python scripts are unable
+to read the file. This issue is resolved by finding the regex match string in
+the following openpyxl library file within the conda environment:
+"./envs/default/Lib/site-packages/openpyxl/descriptors/excel.py"
+Line 91 in this file is a regex pattern to be used in defining the "Guid" class,
+and should be changed to include "a-f" in each set of square brackets as
+follows:
+    pattern = r"{[0-9A-F]{8}-[0-9A-F]{4}-[0-9A-F]{4}-[0-9A-F]{4}-[0-9A-F]{12}\}"
+    pattern = r"{[0-9A-Fa-f]{8}-[0-9A-Fa-f]{4}-[0-9A-Fa-f]{4}-[0-9A-Fa-f]{4}-[0-9A-Fa-f]{12}\}"
+

@@ -26,29 +26,40 @@ description:
 #
 commands:
   default:
-    windows: python M:\Users\RH2\src\ra_filings\scripts\ra_filings.py
+    windows: python \\Sf150pyclfs26\PYCLIENTFS\Users\svc_energyRA\ra_filings\scripts\ra_filings.py -o -c
     env_spec: default
   download:
-    windows: python M:\Users\RH2\src\ra_filings\scripts\download_and_organize.py
+    windows: python \\Sf150pyclfs26\PYCLIENTFS\Users\svc_energyRA\ra_filings\scripts\ra_filings.py -d
     env_spec: default
-  test-kwapi:
-    windows: python M:\Users\RH2\src\ra_filings\scripts\test_kwapi.py
+  notify:
+    windows: python \\Sf150pyclfs26\PYCLIENTFS\Users\svc_energyRA\ra_filings\scripts\ra_filings.py -o -c -n
     env_spec: default
-  test-organizer:
-    windows: python M:\Users\RH2\src\ra_filings\scripts\test_organizer.py
+  consolidate:
+    windows: python \\Sf150pyclfs26\PYCLIENTFS\Users\svc_energyRA\ra_filings\scripts\ra_filings.py -c
     env_spec: default
+  export_to_ezdb:
+    windows: python \\Sf150pyclfs26\PYCLIENTFS\Users\svc_energyRA\ra_filings\scripts\ra_filings.py -e
+    env_spec: default
+  daily:
+    windows: python \\Sf150pyclfs26\PYCLIENTFS\Users\svc_energyRA\ra_filings\scripts\ra_filings.py --daily
+    env_spec: default
+  manual:
+    windows: python \\Sf150pyclfs26\PYCLIENTFS\Users\svc_energyRA\ra_filings\scripts\ra_filings_manual.py
+    env_spec: default
+  test:
+    windows: python \\Sf150pyclfs26\PYCLIENTFS\Users\svc_energyRA\ra_filings\scripts\test_vars.py
+    env_spec: default
+
 #
 # In the variables section, list any environment variables your code depends on.
 # Use `anaconda-project add-variable` to add variables.
 #
 variables:
-  KITEWORKS_UID_SECRET:
-  KITEWORKS_PASSWD_SECRET:
-  KITEWORKS_API_CLIENT_APP_ID_SECRET:
-  KITEWORKS_API_CLIENT_APP_KEY_SECRET:
-  KITEWORKS_API_SIGNATURE_SECRET:
-  EZDB_UID_SECRET:
-  EZDB_UID_PASSWD_SECRET:
+  KITEWORKS_UID: { default: "rafiling@cpuc.ca.gov", encrypted: false }
+  KITEWORKS_PASSWD: { encrypted: true }
+  KITEWORKS_API_CLIENT_APP_ID: { encrypted: true }
+  KITEWORKS_API_CLIENT_APP_KEY: { encrypted: true }
+  KITEWORKS_API_SIGNATURE: { encrypted: true }
 
 #
 # In the services section, list any services that should be
@@ -70,6 +81,7 @@ downloads: {}
 # Use `anaconda-project add-packages` to add packages.
 #
 packages:
+- python=3.8
 - numpy=1.19
 - openpyxl=3.0
 - pandas=1.1
