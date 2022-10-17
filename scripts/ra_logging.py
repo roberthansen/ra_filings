@@ -17,12 +17,14 @@ class TextLogger:
     of criticality, defaulting to 'INFORMATION'. logging levels are defined for
     log targets as well as messages using three bits and applied through bit-
     masking according to the following schematic:
+
         __0 - INFORMATION logging off
         __1 - INFORMATION logging on
         _0_ - WARNING logging off
         _1_ - WARNING logging on
         0__ - ERROR logging off
         1__ - ERROR logging on
+
     while log targets may accept any combination of on and off, messages must
     have exactly one bit on.
     '''
@@ -108,14 +110,13 @@ class TextLogger:
         except:
             self.set_file_logging_criticalities([])
             self.log_path = Path.cwd() / 'default.log'
-    
+
     def clear_log(self):
         '''
-        Purges all data from the consolidation log.
+        Purges all text from the log.
         '''
         with self.log_path.open('w') as f:
             f.write('')
-
 
 class DataLogger:
     '''
@@ -149,12 +150,6 @@ class DataLogger:
         '''
         data['log_timestamp'] = ts.now()
         self.data = self.data.append(data,ignore_index=True)
-    def commit(self):
-        '''
-        writes the log dataframe to file.
-        '''
-        columns = list(self.dtypes.keys())
-        self.data.loc[:,columns].sort_values('log_timestamp').to_csv(self.log_path,sep=self.delimiter,index=False)
     def load_log(self):
         '''
         checks the log file against the current list of columns and either
@@ -167,6 +162,8 @@ class DataLogger:
             if all([column in file_data.columns for column in self.dtypes.keys()]):
                 for date_column in parse_dates:
                     file_data.loc[:,date_column] = file_data.loc[:,date_column].astype(self.dtypes[date_column])
+                replacement_values = {k:'' for k in filter(lambda k:self.dtypes[k]=='string',self.dtypes.keys())}
+                file_data.fillna(replacement_values,inplace=True)
                 self.data = file_data[self.dtypes.keys()]
             else:
                 self.data = pd.DataFrame({column:pd.Series(dtype=dtype) for column,dtype in self.dtypes.items()})
@@ -177,6 +174,7 @@ class DataLogger:
         sets the path of the file to which messages will be logged according to
         criticality; if the file does not exist, it will be created when writing
         the first message.
+
         parameters:
             log_path - path object pointing to a file where log messages will be saved
         '''
@@ -187,6 +185,7 @@ class DataLogger:
         '''
         set the delimiter between sections of a message when saving to the log
         file, e.g., if logging to a .csv file.
+
         parameters:
             delimiter - a string, typically of length 1, which will separate
                 each section of messages when written to the log file
@@ -197,7 +196,14 @@ class DataLogger:
         Purges all data from the consolidation log.
         '''
         self.data = pd.DataFrame(columns=list(self.dtypes.keys()))
-        self.commit()
+    def commit(self):
+        '''
+        writes the log dataframe to file.
+        '''
+        for column,dtype in self.dtypes.items():
+            self.data.loc[:,column] = self.data.loc[:,column].astype(dtype)
+        columns = list(self.dtypes.keys())
+        self.data.loc[:,columns].sort_values('log_timestamp').to_csv(self.log_path,sep=self.delimiter,index=False)
 
 class EmailLogger(DataLogger):
     '''
@@ -205,6 +211,14 @@ class EmailLogger(DataLogger):
     downloaded.
     '''
     def __init__(self,log_path:Path):
+        '''
+        initializes an instance of the EmailLogger class as a subclass of the
+        DataLogger class.
+
+        parameters:
+            log_path - a path object pointing to the file where email
+                information should be logged.
+        '''
         email_log_dtypes = {
             'email_id' : 'string',
             'sender' : 'string',
@@ -225,6 +239,14 @@ class AttachmentLogger(DataLogger):
     a data logger for tracking attachments downloaded from kiteworks.
     '''
     def __init__(self,log_path:Path):
+        '''
+        initializes an instance of the AttachmentLogger class as a subclass of
+        the DataLogger class
+
+        parameters:
+            log_path - a path object pointing to the file where information
+                about downloaded attachments should be logged.
+        '''
         attachment_log_dtypes = {
             'email_id' : 'string',
             'attachment_id' : 'string',
@@ -253,6 +275,14 @@ class ConsolidationLogger(DataLogger):
     a data logger for tracking files relevant to a particular filing month.
     '''
     def __init__(self,log_path:Path):
+        '''
+        initializes an instance of the ConsolidationLogger class as a subclass
+        of the DataLogger class.
+
+        parameters:
+            log_path - a path object pointing to the file where information
+                about consolidated workbooks should be logged.
+        '''
         consolidation_log_dtypes = {
             'ra_category' : 'string',
             'organization_id' : 'string',

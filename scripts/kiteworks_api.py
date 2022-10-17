@@ -1,5 +1,7 @@
 import hmac
 import requests
+from requests.adapters import HTTPAdapter
+from requests.packages.urllib3.util.retry import Retry
 from pathlib import Path
 from hashlib import sha1
 from random import randrange
@@ -59,7 +61,16 @@ class KiteworksAPI:
             'Accept' : 'application/json',
             'X-Accellion-Version' : self.api_version,
             'Authorization' : 'Bearer ' + self.access_token,
+            'Connection' : 'close',
         }
+    # fix issue with connection error:
+    def create_session(self):
+        retry = Retry(connect=5,backoff_factor=0.5)
+        adapter = HTTPAdapter(max_retries=retry)
+        session = requests.Session()
+        session.mount('http://',adapter)
+        session.mount('https://',adapter)
+        return session
     def get_auth_code(self,timestamp:int,nonce:int):
         '''
         hashes and formats access credentials into an authorization code for submittal to
@@ -95,7 +106,8 @@ class KiteworksAPI:
             'scope': self.api_scope,
             'redirect_uri' : self.redirect_uri,
         }
-        response = requests.post(self.access_token_endpoint,post_data)
+        session = self.create_session()
+        response = session.post(self.access_token_endpoint,post_data)
         if response.status_code==200:
             access_token = response.json()['access_token']
         else:
@@ -108,7 +120,8 @@ class KiteworksAPI:
         outgoingError, trash) for the user identified during authentication
         '''
         url = self.kiteworks_hostname + '/rest/mail/actions/counters'
-        response = requests.get(url,headers=self.request_headers)
+        session = self.create_session()
+        response = session.get(url,headers=self.request_headers)
         return response
     def list_emails_from_date(self,receipt_date:dt=dt.now()):
         '''
@@ -123,7 +136,8 @@ class KiteworksAPI:
         parameters = {
             'date' : receipt_date.strftime('%m/%d/%Y'),
         }
-        response = requests.get(url,params=parameters,headers=self.request_headers)
+        session = self.create_session()
+        response = session.get(url,params=parameters,headers=self.request_headers)
         return response
     def list_email_in_date_range(self,start_date:dt=dt.now(),end_date:dt=dt.now()):
         '''
@@ -140,7 +154,24 @@ class KiteworksAPI:
             'date:gte' : start_date.strftime('%m/%d/%Y'),
             'date:lte' : end_date.strftime('%m/%d/%Y'),
         }
-        response = requests.get(url,params=parameters,headers=self.request_headers)
+        session = self.create_session()
+        response = session.get(url,params=parameters,headers=self.request_headers)
+        return response
+    def list_email_since_date(self,start_date:dt=dt.now()):
+        '''
+        retrieves information about the inbox of the kiteworks user identified
+        during authentication, and returns a list of emails received since the
+        specified start date
+
+        parameters:
+            start_date - initial date of emails to retrieve (inclusive)
+        '''
+        url = self.kiteworks_hostname + '/rest/mail'
+        parameters = {
+            'date:gte' : start_date.strftime('%m/%d/%Y'),
+        }
+        session = self.create_session()
+        response = session.get(url,params=parameters,headers=self.request_headers,timeout=5)
         return response
     def get_message(self,mail_id:str):
         '''
@@ -153,7 +184,8 @@ class KiteworksAPI:
         '''
         url = self.kiteworks_hostname + '/rest/mail/' + mail_id
         parameters = ''
-        response = requests.get(url,params=parameters,headers=self.request_headers)
+        session = self.create_session()
+        response = session.get(url,params=parameters,headers=self.request_headers)
         # get key information from response data:
         email_data = response.json()
         {
@@ -172,7 +204,8 @@ class KiteworksAPI:
                 system
         '''
         url = self.kiteworks_hostname + '/rest/mail/{}/attachments'.format(email_id)
-        response = requests.get(url,headers=self.request_headers)
+        session = self.create_session()
+        response = session.get(url,headers=self.request_headers)
         return response
     def preview_attachment(self,email_id:str,attachment_id:str):
         '''
@@ -186,7 +219,8 @@ class KiteworksAPI:
                 identified by mail_id
         '''
         url = self.kiteworks_hostname + '/rest/mail/{}/attachments/{}/preview'.format(email_id,attachment_id)
-        response = requests.get(url,headers=self.request_headers)
+        session = self.create_session()
+        response = session.get(url,headers=self.request_headers)
         return response
     def get_attachment(self,email_id:str,attachment_id:str):
         '''
@@ -200,7 +234,8 @@ class KiteworksAPI:
                 identified by mail_id
         '''
         url = self.kiteworks_hostname + '/rest/mail/{}/attachments/{}/content'.format(email_id,attachment_id)
-        response = requests.get(url,headers=self.request_headers)
+        session = self.create_session()
+        response = session.get(url,headers=self.request_headers)
         return response
     def download_attachment(self,email_id:str,attachment_id:str,download_path:Path):
         '''
@@ -235,7 +270,8 @@ class KiteworksAPI:
                 attachment file once downloaded
         '''
         url = self.kiteworks_hostname + '/rest/mail/{}/attachments/actions/zip'.format(email_id)
-        response = requests.get(url,self.request_headers)
+        session = self.create_session()
+        response = session.get(url,self.request_headers)
         return response
     def upload_file(self,path:Path):
         '''
@@ -269,13 +305,14 @@ class KiteworksAPI:
             'totalSize' : file_size,
             'totalChunks' : number_of_chunks
         }
-        response = requests.post(url=url,headers=self.request_headers,data=post_data)
+        session = self.create_session()
+        response = session.post(url=url,headers=self.request_headers,data=post_data)
         upload_uri = response.json()['uri']
         # loop through and upload file chunks:
         with path.open('rb') as f:
             url = self.kiteworks_hostname + '/' + upload_uri + '?returnEntity=true'
             for i,chunk in enumerate(chunkify(f)):
-                print('Uploading chunk #{} of {}'.format(i,number_of_chunks))
+                # print('Uploading chunk #{} of {}'.format(i+1,number_of_chunks))
                 post_data = {
                     'compressionMode' : 'NORMAL',
                     'compressionSize' : len(chunk),
@@ -285,7 +322,8 @@ class KiteworksAPI:
                 files = {
                     'content' : chunk,
                 }
-                response = requests.post(url=url,files=files,headers=self.request_headers,data=post_data)
+                session = self.create_session()
+                response = session.post(url=url,files=files,headers=self.request_headers,data=post_data)
         return response.json()['id']
     def send_message(self,message:dict,paths:list):
         '''
@@ -312,7 +350,8 @@ class KiteworksAPI:
         else:
             message['files'] = []
         url = self.kiteworks_hostname + '/rest/mail/actions/sendFile?returnEntity=true'
-        response = requests.post(url=url,headers=self.request_headers,data=message)
+        session = self.create_session()
+        response = session.post(url=url,headers=self.request_headers,data=message)
         return response
     def whoami(self):
         '''
@@ -324,5 +363,6 @@ class KiteworksAPI:
             'X-Accellion-Version' : self.api_version,
             'Authorization' : 'Bearer ' + self.access_token,
         }
-        response = requests.get(url,headers=headers)
+        session = self.create_session()
+        response = session.get(url,headers=headers)
         return response
