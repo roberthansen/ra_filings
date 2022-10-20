@@ -1,0 +1,11 @@
+# Exclude byte-compiled/optimized/dll files:
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Exclude the data directory and conda environment from git:
+data/*
+envs/*
+
+# Exclude test scripts from git:
+scripts/test*.py

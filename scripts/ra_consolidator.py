@@ -1,3 +1,4 @@
+from os import rename
 import xlrd
 import numpy as np
 import pandas as pd
@@ -9,7 +10,7 @@ from openpyxl.utils.cell import get_column_letter
 
 from ra_logging import TextLogger,EmailLogger,AttachmentLogger,ConsolidationLogger
 from configuration_options import ConfigurationOptions
-from data_extraction import open_workbook,get_data_range,data_range_to_dataframe,read_ra_monthly_filing,get_year_ahead_tables,get_month_ahead_tables,get_cam_rmr_tables,get_incremental_local_tables,get_nqc_list,read_supply_plan
+from data_extraction import open_workbook,get_data_range,data_range_to_dataframe,read_ra_monthly_filing,get_year_ahead_tables,get_month_ahead_tables,get_cam_rmr_tables,get_incremental_local_tables,get_nqc_list,read_supply_plan,rename_locality
 
 class WorkbookConsolidator:
     '''
@@ -266,7 +267,13 @@ class WorkbookConsolidator:
                     'PhysicalResources!A:A,@INDIRECT("A"&ROW()),' + \
                     'PhysicalResources!K:K,"{0}",' + \
                     'PhysicalResources!F:F,"DR")'
-                return procurement_str.format(local_area,self.config.get_option('demand_response_multiplier')-1)
+                if local_area=='San Diego-IV':
+                    transmission_loss_adder = self.config.get_option('transmission_loss_adder_sdge')
+                elif local_area in ['LA Basin','Big Creek-Ventura']:
+                    transmission_loss_adder = self.config.get_option('transmission_loss_adder_sce')
+                else:
+                    transmission_loss_adder = self.config.get_option('transmission_loss_adder_pge')
+                return procurement_str.format(local_area,round(transmission_loss_adder-1,4))
         compliance_check = '=IF(@INDIRECT(ADDRESS(ROW(),COLUMN()-1))+' + \
             '@INDIRECT(ADDRESS(ROW(),COLUMN()-2))-' + \
             '@INDIRECT(ADDRESS(ROW(),COLUMN()-4))-' + \
@@ -565,7 +572,9 @@ class WorkbookConsolidator:
 
         # lookup local areas for physical resources and demand response programs:
         physical_resources.loc[:,'local_area'] = physical_resources.loc[:,'resource_id'].map(get_local_area)
+        physical_resources.loc[:,'locality'] = physical_resources.loc[:,'local_area'].map(rename_locality)
         demand_response.loc[:,'local_area'] = demand_response.loc[:,'program_id'].map(get_local_area)
+        demand_response.loc[:,'locality'] = demand_response.loc[:,'local_area'].map(rename_locality)
 
         # get certifications from previous month:
         columns = [
@@ -690,48 +699,56 @@ class WorkbookConsolidator:
                 demand_response_coefficient = 1
             else:
                 demand_response_coefficient = self.config.get_option('demand_response_multiplier')
-            local_areas = [
-                ['Y{}','LA Basin'],
-                ['AD{}','Big Creek-Ventura'],
-                ['AI{}','San Diego-IV'],
-                ['AN{}','Bay Area'],
-                ['AS{}','Humboldt'],
-                ['AX{}','Sierra'],
-                ['BC{}','Stockton'],
-                ['BH{}','NCNB'],
-                ['BM{}','Fresno'],
-                ['BR{}','Kern'],
+            localities = [
+                ['Y{}','los_angeles','sce'],
+                ['AD{}','ventura','sce'],
+                ['AI{}','san_diego','sdge'],
+                ['AN{}','bay_area','pge'],
+                ['AS{}','humboldt','pge'],
+                ['AX{}','sierra','pge'],
+                ['BC{}','stockton','pge'],
+                ['BH{}','northern_california','pge'],
+                ['BM{}','fresno','pge'],
+                ['BR{}','kern','pge'],
             ]
-            for cell_address,local_area_name in local_areas:
+            for cell_address,locality,service_territory in localities:
+                if organization_id in ['pge','sce','sdge']:
+                    transmission_loss_adder = 1
+                else:
+                    transmission_loss_adder = round(self.config.get_option(f'transmission_loss_adder_{service_territory}'),5)
                 caiso_cross_check['Requirements'][cell_address.format(row_number_summary+1)].value = \
                     physical_resources.loc[
                         (physical_resources.loc[:,'organization_id']==organization_id) &
-                        (physical_resources.loc[:,'local_area']==local_area_name),
+                        (physical_resources.loc[:,'locality']==locality),
                         'resource_adequacy_local'
                     ].sum() + \
-                    demand_response_coefficient * \
+                    transmission_loss_adder * \
                     demand_response.loc[
                         (demand_response.loc[:,'organization_id']==organization_id) &
-                        (demand_response.loc[:,'local_area']==local_area_name),
+                        (demand_response.loc[:,'locality']==locality),
                         'resource_adequacy_local'
                     ].sum()
             regions = [
-                ['BW{}',['Humboldt','Sierra','Stockton','NCNB','Fresno','Kern']],
-                ['CB{}',['LA Basin','Big Creek-Ventura']],
-                ['CG{}',['San Diego-IV']],
-                ['CL{}',['Bay Area','Humboldt','Sierra','Stockton','NCNB','Fresno','Kern']],
+                ['BW{}',['humboldt','sierra','stockton','northern_california','fresno','kern'],'pge'],
+                ['CB{}',['los_angeles','ventura'],'sce'],
+                ['CG{}',['san_diego'],'sdge'],
+                ['CL{}',['bay_area','humboldt','sierra','stockton','northern_california','fresno','kern'],'pge'],
             ]
-            for cell_address,local_area_names in regions:
+            for cell_address,localities,service_territory in regions:
+                if organization_id in ['pge','sce','sdge']:
+                    transmission_loss_adder = 1
+                else:
+                    transmission_loss_adder = round(self.config.get_option(f'transmission_loss_adder_{service_territory}'),5)
                 caiso_cross_check['Requirements'][cell_address.format(row_number_summary+1)].value = \
                     physical_resources.loc[
                         (physical_resources.loc[:,'organization_id']==organization_id) &
-                        (physical_resources.loc[:,'local_area'].isin(local_area_names)),
+                        (physical_resources.loc[:,'locality'].isin(localities)),
                         'resource_adequacy_local'
                     ].sum() + \
-                    demand_response_coefficient * \
+                    transmission_loss_adder * \
                     demand_response.loc[
                         (demand_response.loc[:,'organization_id']==organization_id) &
-                        (demand_response.loc[:,'local_area'].isin(local_area_names)),
+                        (demand_response.loc[:,'locality'].isin(localities)),
                         'resource_adequacy_local'
                     ].sum()
             caiso_cross_check['FilingSummary']['A{}'.format(row_number_summary)] = organization_id

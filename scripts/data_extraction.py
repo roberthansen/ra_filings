@@ -280,7 +280,6 @@ def read_ra_monthly_filing(organization:dict,config:ConfigurationOptions,logger:
             else:
                 physical_resources = pd.DataFrame(columns=physical_resources_columns)
             physical_resources.loc[:,'organization_id'] = organization['id']
-            physical_resources.loc[:,'locality'] = physical_resources.loc[:,'local_area'].map(rename_locality)
             physical_resources.replace('',0,inplace=True)
             physical_resources.loc[:,'continuous_availability'] = physical_resources.loc[:,'continuous_availability'].map(lambda s: True if s=='Y' else False)
 
@@ -304,7 +303,6 @@ def read_ra_monthly_filing(organization:dict,config:ConfigurationOptions,logger:
             else:
                 demand_response = pd.DataFrame(columns=demand_response_columns)
             demand_response.loc[:,'organization_id'] = organization['id']
-            demand_response.loc[:,'locality'] = demand_response.loc[:,'local_area'].map(rename_locality)
             demand_response.replace('',0,inplace=True)
             demand_response.loc[:,'third_party_program'] = demand_response.loc[:,'third_party_program'].map(lambda s: True if s=='Y' else False)
 

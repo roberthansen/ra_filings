@@ -21,25 +21,23 @@ class KiteworksWebScraper:
     site_url = 'https://kwftp.cpuc.ca.gov'
 
     # initialize object:
-    def __init__(self,configuration_path:Path,user:dict):
-        self.configuration_options = ConfigurationOptions(configuration_path)
-        self.paths = Paths(self.configuration_options)
-        self.email_filter = EmailFilter(self.paths.get_path('email_filter'))
+    def __init__(self,configuration_options_path:Path,user:dict):
+        self.config = ConfigurationOptions(configuration_options_path)
         self.logger = TextLogger(
-            self.configuration_options.get_option('cli_logging_criticalities'),
-            self.configuration_options.get_option('file_logging_criticalities'),
-            self.paths.get_path('log')
+            self.config.get_option('cli_logging_criticalities'),
+            self.config.get_option('file_logging_criticalities'),
+            self.config.paths.get_path('log')
         )
         self.set_user(user)
         self.download_source = 'external'
-        self.set_browser(self.configuration_options.get_option('browser'))
-        self.set_action_timer(self.configuration_options.get_option('browser_action_timer'))
-        self.set_maximum_retries(self.configuration_options.get_option('browser_action_retries'))
+        self.set_browser(self.config.get_option('browser'))
+        self.set_action_timer(self.config.get_option('browser_action_timer'))
+        self.set_maximum_retries(self.config.get_option('browser_action_retries'))
 
     # set directory for storing email attachments based on internal or external source:
     def set_download_source(self,driver,s:str='external'):
         if s in ('internal','external') and s!=self.download_source:
-            path = self.paths.get_path('downloads_{}'.format(s))
+            path = self.config.paths.get_path('downloads_{}'.format(s))
             driver.execute_script('window.open(\'about:blank\');')
             driver.switch_to_window(driver.window_handles[1])
             driver.get('about:config')
@@ -101,28 +99,28 @@ class KiteworksWebScraper:
             'application/pdf',
         ]
         if self.browser=='chrome':
-            driver_location = self.paths.get_path('webdrivers') / 'chromedriver.exe'
+            driver_location = self.config.paths.get_path('webdrivers') / 'chromedriver.exe'
             ser = webdriver.chrome.service.Service(driver_location)
             opts = webdriver.ChromeOptions()
             opts.add_experimental_option('prefs',{
-                'download.default_directory' : str(self.paths.get_path('downloads')),
+                'download.default_directory' : str(self.config.paths.get_path('downloads')),
             })
             opts.add_extension()
             driver = webdriver.Chrome(service=ser,chrome_options=opts)
         elif self.browser=='edge':
-            driver_location = self.paths.get_path('webdrivers') / 'msedgedriver.exe'
+            driver_location = self.config.paths.get_path('webdrivers') / 'msedgedriver.exe'
             ser = webdriver.edge.service.Service(driver_location)
             opts = webdriver.EdgeOptions()
             driver = webdriver.Edge(service=ser,options=opts)
         elif self.browser=='firefox':
-            driver_location = str(self.paths.get_path('webdrivers') / 'geckodriver.exe')
+            driver_location = str(self.config.paths.get_path('webdrivers') / 'geckodriver.exe')
             opts = webdriver.FirefoxOptions()
             opts.set_preference('browser.download.panel.shown',False)
             opts.set_preference('browser.helperApps.neverAsk.saveToDisk',';'.join(mime_types))
             opts.set_preference('browser.helperApps.alwaysAsk.force',False)
             opts.set_preference('browser.download.manager.showWhenStarting',False)
             opts.set_preference('browser.download.folderList',2)
-            opts.set_preference('browser.download.dir',str(self.paths.get_path('downloads_external')))
+            opts.set_preference('browser.download.dir',str(self.config.paths.get_path('downloads_external')))
             driver = webdriver.Firefox(executable_path=driver_location,options=opts)
         return driver
 
@@ -139,7 +137,7 @@ class KiteworksWebScraper:
                 tf = True
                 state = 0
                 retry_counter = 0
-                initial_download_count = len(list(self.paths.get_path('downloads_internal').iterdir())) + len(list(self.paths.get_path('downloads_external').iterdir()))
+                initial_download_count = len(list(self.config.paths.get_path('downloads_internal').iterdir())) + len(list(self.config.paths.get_path('downloads_external').iterdir()))
                 download_count = initial_download_count
                 # non-blocking loop through states to open browser, log into
                 # kiteworks, check unread emails, and download attachments:
@@ -379,7 +377,7 @@ class KiteworksWebScraper:
                         retry_counter += 1
                         if retry_counter>=self.maximum_retries:
                             self.logger.log('{} Downloads Have Not Completed'.format(download_count-initial_download_count),'WARNING')
-                        if len(list(self.paths.get_path('downloads_internal').iterdir()))+len(list(self.paths.get_path('downloads_external').iterdir()))>=download_count:
+                        if len(list(self.config.paths.get_path('downloads_internal').iterdir()))+len(list(self.config.paths.get_path('downloads_external').iterdir()))>=download_count:
                             self.logger.log('Downloads complete','INFORMATION')
                             state = 99
                     # state 99 - exit while loop and close webdriver:
@@ -388,4 +386,4 @@ class KiteworksWebScraper:
                     else:
                         pass
         except OSError:
-            self.logger.log('Webdriver not found for {} browser at {}'.format(self.browser,self.paths.get_path('webdrivers')))
+            self.logger.log('Webdriver not found for {} browser at {}'.format(self.browser,self.config.paths.get_path('webdrivers')))

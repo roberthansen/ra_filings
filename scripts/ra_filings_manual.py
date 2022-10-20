@@ -4,12 +4,12 @@ from pandas import Timestamp as ts
 from ra_filings import ra_filings
 
 if __name__=='__main__':
-    for m in [11]:
+    for m in [12]:
         filing_month = ts('2022-{:02d}-01'.format(m))
         download = False
         organize = False
         consolidate = True
-        notify = False
+        notify = True
         export = False
 
         if any([download,organize,consolidate,notify,export]):

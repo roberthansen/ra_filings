@@ -1,3 +1,4 @@
+from bdb import effective
 import io
 import os
 import re
@@ -209,7 +210,11 @@ class Organizer:
                     r'\s*lse\s*',
                     r'\s*errors.*warnings\s*',
                 ]
-                effective_date = pd.to_datetime(dt.strptime('/'.join(re.match(r'.*\s(\d{1,2})[_\W](\d{1,2})[_\W](\d{2}).*',download_path.name).groups()),'%m/%d/%y'))
+                effective_date_elements = re.match(r'.*\s(\d{1,2})[_\W](\d{1,2})[_\W](\d{2,4}).*',download_path.name).groups()
+                if len(effective_date_elements[2])==2:
+                    effective_date = pd.to_datetime(dt.strptime('/'.join(effective_date_elements),'%m/%d/%y'))
+                else:
+                    effective_date = pd.to_datetime(dt.strptime('/'.join(effective_date_elements),'%m/%d/%Y'))
                 effective_date = effective_date.replace(effective_date.year+int((effective_date.month+1)/12),(effective_date.month+1)%12+1,1)
                 if len(columns)>=len(system_columns) and all([re.match(s,columns[i].lower()) for i,s in enumerate(system_columns)]):
                     set_attachment_value('ra_category','supply_plan_system')
