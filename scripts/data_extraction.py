@@ -77,7 +77,7 @@ def get_data_range(worksheet:Worksheet,lse_column:str,data_columns:str,config:Co
         # return a list containing an empty list;
         data_range = [[]]
     return data_range
-    
+
 def data_range_to_dataframe(columns,data_range):
     '''
     converts a excel data range into a pandas dataframe
@@ -105,6 +105,9 @@ def get_table(worksheet,table_header_text:str,table_header_offset:dict,columns:l
         worksheet - an excel worksheet expected to contain the table header
         table_header_text - a string which, if found identically within the
             worksheet, will be used as the reference coordinates for the table
+        table_header_offset - 
+        columns - a list which will be used as the column labels in the
+            resulting dataframe
     '''
     table_bounds = {
         'top' : worksheet.max_row,
@@ -178,6 +181,22 @@ def read_ra_monthly_filing(organization:dict,config:ConfigurationOptions,logger:
         'operator',
         'zone',
         'local_area',
+    ]
+    month_ahead_cam_rmr_columns = [
+        'month',
+        'sp26_cam_capacity',
+        'np26_cam_capacity',
+        'np26_rmr',
+        'sp26_rmr',
+        'system_rmr',
+        'pge_cpm_credit',
+        'sce_cpm_credit',
+        'sdge_cpm_credit',
+    ]
+    cpe_system_cam_columns = [
+        'month',
+        'sp26_cam_capacity',
+        'np26_cam_capacity',
     ]
     if ra_monthly_filing is not None:
         logger.log('Reading Filing Data for {name} ({id})'.format(**organization),'INFORMATION')
@@ -476,7 +495,33 @@ def get_year_ahead_tables(year_ahead,config:ConfigurationOptions):
     columns
     data_range = year_ahead['Local RA-CAM-{}'.format(filing_month.year)]['C4:L4']
     total_lcr = data_range_to_dataframe(columns,data_range)
-    return (load_forecast_input_data,demand_response_allocation,cam_credits,flexibility_requirements,flexibility_rmr,local_rar,total_lcr)
+
+    # cam system:
+    columns = [
+        'resource_name',
+        'resource_id',
+        'local_area',
+        'procurement_status',
+        'start_date',
+        'end_date',
+        'resource_mcc_bucket',
+    ] + month_columns
+    pge_sheet_re = re.compile('.*pge.*system.*')
+    if len(list(filter(lambda s:pge_sheet_re.search(s.lower()),year_ahead.sheetnames)))>0:
+        pge_system_sheetname = next(filter(lambda s:re.search('.*pge.*system.*',s.lower()),year_ahead.sheetnames))
+        pge_cam_system = get_table(year_ahead[pge_system_sheetname],'CAM System RA Allocated (MW)',{'rows':2,'columns':-7},columns=columns)
+        pge_cam_system.loc[:,'path_26_region'] = 'north'
+    else:
+        pge_cam_system = pd.DataFrame(columns=columns+['path_26_region'])
+    sce_sheet_re = re.compile('.*sce.*system.*')
+    if len(list(filter(lambda s:sce_sheet_re.search(s.lower()),year_ahead.sheetnames)))>0:
+        sce_system_sheetname = next(filter(lambda s:re.search('.*sce.*system.*',s.lower()),year_ahead.sheetnames))
+        sce_cam_system = get_table(year_ahead[sce_system_sheetname],'CAM System RA Allocated (MW)',{'rows':2,'columns':-7},columns=columns)
+        sce_cam_system.loc[:,'path_26_region'] = 'south'
+    else:
+        sce_cam_system = pd.DataFrame(columns=columns+['path_26_region'])
+    cam_system = pd.concat([pge_cam_system,sce_cam_system],ignore_index=True)
+    return (load_forecast_input_data,demand_response_allocation,cam_credits,flexibility_requirements,flexibility_rmr,local_rar,total_lcr,cam_system)
 
 def get_incremental_local_tables(incremental_local,config:ConfigurationOptions):
     '''
