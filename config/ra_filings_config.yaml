@@ -1,6 +1,6 @@
 ---
 filing_month: apr 2022
-planning_reserve_margin: 0.15
+planning_reserve_margin: 0.16
 demand_response_multiplier: 1.09
 transmission_loss_adder_pge: 1.03
 transmission_loss_adder_sce: 1.025

@@ -388,7 +388,7 @@ class Organizations:
         parameters:
             alias - an alias mapped to an organization id
         '''
-        if alias.lower() in [value.lower() for values in self.alias_map.values() for value in values]:
+        if isinstance(alias,str) and alias.lower() in [value.lower() for values in self.alias_map.values() for value in values]:
             filter_function = lambda id: alias.lower() in [mapped_alias.lower() for mapped_alias in self.alias_map[id]]
             organization_id = next(filter(filter_function,self.alias_map.keys()))
         elif alias in self.alias_map.keys():

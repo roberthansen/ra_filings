@@ -57,7 +57,7 @@ account is independent of staff and is setup such that its password will not
 expire, so the script can run indefinitely across, e.g., personnel changes.
 ENERGY\svc_energyRA is not, accessible through Remote Desktop, but users may
 create interactive sessions in PowerShell through the following command:
-    runas.exe /profile /user:energy\svc_energyRA "powershell -ExecutionPolicy ByPass"
+    runas.exe /profile /user:ENERGY\svc_energyRA "powershell -ExecutionPolicy ByPass"
 A prompt will request the svc_energyRA password, and upon correct entry, a
 new shell session will start as the ENERGY\svc_energyRA account. From there, the
 user may activate a conda environment and execute anaconda commands with access
@@ -132,30 +132,59 @@ parameters that define the python scripts' behavior:
       monthly filings.
   webdriver_directory -- the directory containing the webdriver executable
       file.
-  browser - the name of the installed browser to use, e.g., firefox. Used when
+  browser -- the name of the installed browser to use, e.g., firefox. Used when
       downloading monthly filings from the Kiteworks web interface.
-  browser_action_timer - the time, specified as a decimal number of in seconds,
-      between browser actions to account for loading times. Default is 0.75.
-      Used when downloading monthly filings from the Kiteworks web interface.
-  browser_action_retries - the number of times to attempt a browser action,
+  browser_action_timer -- the time, specified as a decimal number of in
+      seconds, between browser actions to account for loading times. Default is
+      0.75. Used when downloading monthly filings from the Kiteworks web
+      interface.
+  browser_action_retries -- the number of times to attempt a browser action,
       such as clicking a button, before escaping. Used when downloading monthly
       filings from the Kiteworks web interface.
-  log_file - the location of a file to which a log of actions will be saved.
+  log_file -- the location of a file to which a log of actions will be saved.
       Used when any criticalities are identified for file logging and events
       of matching criticality occur.
-  cli_logging_criticalities - a list of log criticality levels which will be
+  cli_logging_criticalities -- a list of log criticality levels which will be
       reported to the command line interface. The available criticality levels,
       in order of descending severity, are ERROR, WARNING, and INFORMATION. The
       levels should be entered as a comma-separated list in all-caps and
       without spaces.
-  file_logging_criticalities - a list of log criticality levels, as defined
+  file_logging_criticalities -- a list of log criticality levels, as defined
       above, which will be recorded in the specified log file.
+  email_log_filename -- the location of a .csv file to which a log of Kiteworks
+      emails will be saved. The log contains data about each email, such as
+      receipt date, subject, sender, Kiteworks id, and whether the attachments
+      are to be downloaded. Files placed manually in the download directories
+      are also logged. This data can be used for tracing downloaded attachments
+      to their sources. This log is used across multiple filing months.
+  attachment_log -- the location of a .csv file to which attachments downloaded
+      from emails to Kiteworks are logged. The log contains data about each
+      attachment, such as download date, original filename, and associated
+      email id. Files placed manually in the download directories are assigned
+      unique ids for tracking purposes. Files recognized as relevant to the
+      compliance check process are marked with the file type and copied with
+      standardized filenames into relevant directories. This log is used across
+      multiple filing months.
+  consolidation_log_filename -- the location of a .csv file to which a log of
+      each file used in assessing compliance for a single month is saved. The
+      log consists of a list of each file expected during a compliance check
+      with the file's status and, if the file exists, information for tracing
+      to the source attachment and email. The log also includes the compliance
+      status for each monthly filing. A different log is generated for each
+      filing month when the ra_consolidator script is run, and the 
+  version_controlled_files -- a list of file types to which version numbers are
+      expected to be appended. The file types are referred to as 'ra_category'
+      in ra_organizer.py and ra_consolidator.py, and correspond to the
+      keys of the path_strings dictionary defined in the Paths class in
+      configuration_options.py
+  files_for_archive -- a list of files which will be copied into a zip archive
+      when the ra_consolidator script is run.
 
-As a YAML file, the configuration settings can be edited with any text editor,
-such as Notepad. Note that settings specifying a path such as a directory or
-filename including filename_template generally should be enclosed in single
-quotation marks. Other settings should not have quotation marks. See the YAML
-specification for more information: https://yaml.org/spec/1.2.2/
+The configuration settings can be edited with any text editor, such as Notepad.
+Note that settings specifying a path such as a directory or filename including
+filename_template generally should be enclosed in single quotation marks. Other
+settings should not have quotation marks. See the YAML specification for more
+information: https://yaml.org/spec/1.2.2/
 
 
 Load Serving Entity Map (lse_map.yaml):
