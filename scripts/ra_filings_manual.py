@@ -6,8 +6,8 @@ from ra_filings import ra_filings
 #changed line 19 to point to ra_filings_config_2023.yaml
 
 if __name__=='__main__':
-    for m in [12]:
-        filing_month = ts('2022-{:02d}-01'.format(m))
+    for m in [3]:
+        filing_month = ts('2023-{:02d}-01'.format(m))
         download = False
         organize = False
         consolidate = True

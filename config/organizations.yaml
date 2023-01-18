@@ -259,6 +259,7 @@ CPSF:
   aliases:
     - Clean Power San Francisco
     - CleanPowerSF
+    - CleanPowerSF (CPSF)
   default_email: 'mhyams@sfwater.org'
 CRLC:
   scid:
@@ -520,6 +521,7 @@ SBCE:
   aliases:
     - Santa Barbara Clean Energy
     - City of Santa Barbara d/b/a Santa Barbara Clean Energy
+    - City of Santa Barbara d/b/a "Santa Barbara Clean Energy"
   default_email: ''
 SDCP:
   scid: LSDCE

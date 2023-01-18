@@ -30,7 +30,8 @@ def open_workbook(path:Path,data_only:bool=True,read_only:bool=True,in_mem:bool=
     if path is not None:
         if path.is_file() and re.match(r'^.*\.xlsx$',path.name):
             with warnings.catch_warnings():
-                warnings.filterwarnings(action='ignore',message='.*?(header|Validation).*')
+                warnings.simplefilter(action='ignore')
+                # warnings.filterwarnings(action='ignore',message='.*?(header|Validation).*')
                 if in_mem:
                     with path.open('rb') as f:
                         in_mem_file = io.BytesIO(f.read())
@@ -419,11 +420,11 @@ def get_year_ahead_tables(year_ahead,config:ConfigurationOptions):
     cam_credits.sort_index(inplace=True)
 
     # flexibility requirements:
-    table_header_text = 'Flex Requirements net CAM'
     table_header_offset = {
         'rows' : 1,
         'columns' : -1,
     }
+    table_header_text = 'Flex Requirements net CAM'
     month_columns = [ts(filing_month.year,month,1).to_numpy().astype('datetime64[M]') for month in range(1,13)]
     columns = [
         'organization_id',
@@ -443,6 +444,18 @@ def get_year_ahead_tables(year_ahead,config:ConfigurationOptions):
     flexibility_rmr = flexibility_rmr.melt(id_vars=['organization_id'],var_name='month',value_name='flexibility_rmr')
     flexibility_rmr.set_index(['organization_id','month'],inplace=True)
     flexibility_rmr.sort_index(inplace=True)
+
+    # flex-cme (new table for 2023):
+    columns = ['organization_id'] + month_columns
+    if filing_month>ts(2022,12,31):
+        data_range = get_data_range(year_ahead['CPE Flexible'],'A','BCDEFGHIJKLM',config)
+        flexibility_cme = data_range_to_dataframe(columns,data_range)
+        flexibility_cme = flexibility_cme.melt(id_vars=['organization_id'],var_name='month',value_name='flexibility_cme')
+    else:
+        lse_ids = [lse['id'] for lse in config.organizations.list_load_serving_entities()]
+        flexibility_cme = pd.DataFrame({'organization_id':lse_ids*12*3,'month':month_columns*3*len(lse_ids),'flexibility_cme':[0]*12*3*len(lse_ids)})
+    flexibility_cme.set_index(['organization_id','month'],inplace=True)
+    flexibility_cme.sort_index(inplace=True)
 
     # local cam:
     columns = [
@@ -521,7 +534,7 @@ def get_year_ahead_tables(year_ahead,config:ConfigurationOptions):
     else:
         sce_cam_system = pd.DataFrame(columns=columns+['path_26_region'])
     cam_system = pd.concat([pge_cam_system,sce_cam_system],ignore_index=True)
-    return (load_forecast_input_data,demand_response_allocation,cam_credits,flexibility_requirements,flexibility_rmr,local_rar,total_lcr,cam_system)
+    return (load_forecast_input_data,demand_response_allocation,cam_credits,flexibility_requirements,flexibility_rmr,flexibility_cme,local_rar,total_lcr,cam_system)
 
 def get_incremental_local_tables(incremental_local,config:ConfigurationOptions):
     '''
@@ -589,8 +602,8 @@ def get_incremental_local_tables(incremental_local,config:ConfigurationOptions):
     local_rar_trueup.set_index(['organization_id','location'],inplace=True)
     local_rar_trueup.sort_index(inplace=True)
     return (incremental_flex,incremental_local_load,local_rar_trueup)
-    
-def get_month_ahead_tables(month_ahead):
+
+def get_month_ahead_tables(month_ahead,config:ConfigurationOptions):
     '''
     loads relevant data from the month-ahead forecasts workbook into dataframes
     parameters:
@@ -634,7 +647,10 @@ def get_month_ahead_tables(month_ahead):
         'pge_revised_jurisdictional_load_share',
         'total_revised_jurisdictional_load_share',
     ]
-    data_range = month_ahead['Monthly Tracking for CPUC']['B5:AK{}'.format(month_ahead['Monthly Tracking for CPUC'].max_row)]
+    if config.filing_month>ts(2022,12,31):
+        data_range = month_ahead['Monthly Tracking']['B5:AK{}'.format(month_ahead['Monthly Tracking'].max_row)]
+    else:
+        data_range = month_ahead['Monthly Tracking for CPUC']['B5:AK{}'.format(month_ahead['Monthly Tracking for CPUC'].max_row)]
     month_ahead_forecasts = data_range_to_dataframe(columns,data_range)
     month_ahead_forecasts['organization_id'] = month_ahead_forecasts.loc[:,'organization_id'].map(lambda s: s.replace('Total','').strip() if isinstance(s,str) else s)
     month_ahead_forecasts.set_index(['organization_id','month'],inplace=True)

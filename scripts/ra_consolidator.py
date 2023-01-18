@@ -91,14 +91,15 @@ class WorkbookConsolidator:
         demand_response_allocation = year_ahead_tables[1]
         flexibility_requirements = year_ahead_tables[3]
         flexibility_rmr = year_ahead_tables[4]
-        local_rar = year_ahead_tables[5]
-        cam_system = year_ahead_tables[7]
+        flexibility_cme = year_ahead_tables[5]
+        local_rar = year_ahead_tables[6]
+        cam_system = year_ahead_tables[8]
         year_ahead.close()
 
         # get source data from month ahead file:
         path = self.config.paths.get_path('month_ahead')
         month_ahead = open_workbook(path,in_mem=False)
-        month_ahead_forecasts = get_month_ahead_tables(month_ahead)
+        month_ahead_forecasts = get_month_ahead_tables(month_ahead,self.config)
         month_ahead.close()
 
         # get source data from cam-rmr file:
@@ -156,13 +157,12 @@ class WorkbookConsolidator:
                     -total_cam_rmr.loc['np26_cam'] * cam_load_share
                     # NP26RMR:
                     -total_cam_rmr.loc['np26_rmr'] * cam_rmr_monthly_tracking.loc[(organization_id,filing_month),'pge_revised_nonjurisdictional_load_share']
+                    -total_cam_rmr.loc['system_rmr'] * cam_rmr_monthly_tracking.loc[(organization_id,filing_month),'total_revised_jurisdictional_load_share']
+                    # CPE System CAM:
+                    -np26_cpe_system_cam
                 ),
                 0
-            ) - total_cam_rmr.loc['system_rmr'] * \
-            cam_rmr_monthly_tracking.loc[
-                (organization_id,filing_month),
-                'total_revised_jurisdictional_load_share'
-            ] - np26_cpe_system_cam
+            )
             sn_path26_allocation = 0
             # SP26 summary sheet:
             if organization_id=='SCE':
@@ -195,9 +195,11 @@ class WorkbookConsolidator:
                     -total_cam_rmr.loc['sp26_rmr'] * cam_rmr_monthly_tracking.loc[(organization_id,filing_month),'sce_revised_nonjurisdictional_load_share']
                     # SCELCR:
                     -total_cam_rmr.loc['sce_preferred_lcr_credit'] * cam_rmr_monthly_tracking.loc[(organization_id,filing_month),'sce_revised_jurisdictional_load_share']
-                ),
+                    # CPE System CAM:
+                    -sp26_cpe_system_cam
+                ) ,
                 0
-            ) - sp26_cpe_system_cam
+            )
             ns_path26_allocation = 0
             def incremental_flex_by_category(category:int):
                 if incremental_flex is not None:
@@ -232,7 +234,7 @@ class WorkbookConsolidator:
                 'sn_path26_allocation' : sn_path26_allocation,
                 'sp26_ra_obligation' : sp26_ra_obligation,
                 'ns_path26_allocation' : ns_path26_allocation,
-                'year_ahead_flex_rar_category1' : flexibility_requirements.loc[(organization_id,1,filing_month),'flexibility_requirement'] - flexibility_rmr.loc[(organization_id,filing_month),'flexibility_rmr'],
+                'year_ahead_flex_rar_category1' : flexibility_requirements.loc[(organization_id,1,filing_month),'flexibility_requirement'] - flexibility_rmr.loc[(organization_id,filing_month),'flexibility_rmr'] - flexibility_cme.loc[(organization_id,filing_month),'flexibility_cme'],
                 'year_ahead_flex_rar_category2' : flexibility_requirements.loc[(organization_id,2,filing_month),'flexibility_requirement'],
                 'year_ahead_flex_rar_category3' : flexibility_requirements.loc[(organization_id,3,filing_month),'flexibility_requirement'],
                 'year_ahead_flex_incremental_category1' : incremental_flex_by_category(1),
@@ -305,11 +307,11 @@ class WorkbookConsolidator:
             organization_id = s.loc['organization_id']
             ra_summary['NP26']['A{}'.format(row_number)].value = organization_id
             ra_summary['NP26']['B{}'.format(row_number)].value = s.loc['np26_ra_obligation']
-            ra_summary['NP26']['B{}'.format(row_number)].number_format = '0.00'
+            ra_summary['NP26']['B{}'.format(row_number)].number_format = '0'
             ra_summary['NP26']['E{}'.format(row_number)].value = s.loc['sn_path26_allocation']
             ra_summary['SP26']['A{}'.format(row_number)].value = organization_id
             ra_summary['SP26']['B{}'.format(row_number)].value = s.loc['sp26_ra_obligation']
-            ra_summary['SP26']['B{}'.format(row_number)].number_format = '0.00'
+            ra_summary['SP26']['B{}'.format(row_number)].number_format = '0'
             ra_summary['SP26']['E{}'.format(row_number)].value = s.loc['ns_path26_allocation']
             ra_summary['FlexRAR']['A{}'.format(row_number)].value = organization_id
             ra_summary['FlexRAR']['B{}'.format(row_number)] = '=@INDIRECT("E"&ROW())+@INDIRECT("G"&ROW())+@INDIRECT("I"&ROW())'
@@ -420,7 +422,7 @@ class WorkbookConsolidator:
             # caiso supply plan cross-check:
             caiso_cross_check['Requirements']['A{}'.format(row_number+1)] = organization_id
             caiso_cross_check['Requirements']['B{}'.format(row_number+1)].value = s.loc[['np26_ra_obligation','sp26_ra_obligation']].sum()
-            caiso_cross_check['Requirements']['B{}'.format(row_number+1)].number_format = '0.00'
+            caiso_cross_check['Requirements']['B{}'.format(row_number+1)].number_format = '0'
             caiso_cross_check['Requirements']['H{}'.format(row_number+1)] = '=@INDIRECT("K"&ROW())+@INDIRECT("M"&ROW())+@INDIRECT("O"&ROW())'
             caiso_cross_check['Requirements']['I{}'.format(row_number+1)] = '=@INDIRECT("L"&ROW())+@INDIRECT("N"&ROW())+@INDIRECT("P"&ROW())'
             caiso_cross_check['Requirements']['J{}'.format(row_number+1)] = '=IFERROR(@INDIRECT("I"&ROW())/@INDIRECT("H"&ROW()),0)'

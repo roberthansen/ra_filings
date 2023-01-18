@@ -6,6 +6,8 @@ __pycache__/
 # Exclude the data directory and conda environment from git:
 data/*
 envs/*
+.git/*
+.vscode/*
 
 # Exclude test scripts from git:
 scripts/test*.py

@@ -81,7 +81,7 @@ class Organizer:
                                 'Flex RMR',
                                 'Local RA-CAM-{}'.format(pd.to_datetime(self.config.filing_month).year),
                             ],
-                            'month_ahead' : ['Monthly Tracking for CPUC'],
+                            'month_ahead' : ['Monthly Tracking'],
                             'cam_rmr' : [
                                 'CAMRMR',
                                 'monthlytracking',
@@ -313,7 +313,7 @@ class Organizer:
         self.attachment_logger.data.loc[:,'archive_path'] = self.attachment_logger.data.apply(get_archive_path,axis='columns')
         self.attachment_logger.data = self.attachment_logger.data.loc[:,columns]
         self.attachment_logger.commit()
-    
+
     def copy_rename(self,attachment_id:str):
         '''
         copies a single attachment identified by its attachment_id to the archive path if the file doesn't already exist.
@@ -422,7 +422,7 @@ class Organizer:
             os.remove(directory_path)
         else:
             pass
-    
+
     def organize(self):
         '''
         calls each of the main methods of the ra_organizer method in sequence
