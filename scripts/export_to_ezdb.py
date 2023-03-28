@@ -158,7 +158,7 @@ class DataExporter:
             attachment_id = self.attachment_logger.data.loc[self.attachment_logger.data.loc[:,'archive_path']==str(archive_path),'attachment_id']
             version = self.config.paths.get_version_number(archive_path,'year_ahead')
             wb = open_workbook(archive_path)
-            load_forecast_input_data,demand_response_allocation,cam_credits,flexibility_requirements,flexibility_rmr,local_rar,total_lcr = get_year_ahead_tables(wb,self.config)
+            load_forecast_input_data,demand_response_allocation,cam_credits,flexibility_requirements,flexibility_rmr,flexibility_cme,local_rar,total_lcr,cam_system = get_year_ahead_tables(wb,self.config)
 
             # load forecasts:
             load_forecast_input_data.reset_index(inplace=True)
@@ -333,7 +333,7 @@ class DataExporter:
             attachment_id = self.attachment_logger.data.loc[self.attachment_logger.data.loc[:,'archive_path']==str(archive_path),'attachment_id']
             version = self.config.paths.get_version_number(archive_path,'month_ahead')
             wb = open_workbook(archive_path)
-            month_ahead_forecasts = get_month_ahead_tables(wb)
+            month_ahead_forecasts = get_month_ahead_tables(wb,self.config)
             month_ahead_forecasts.reset_index(inplace=True)
             month_ahead_forecasts.rename({
                 'organization_id' : 'LoadServingEntity',
@@ -457,10 +457,10 @@ class DataExporter:
                         'resource_adequacy_flexibility_category' : 'FlexibleCategory',
                         'start_date' : 'Start',
                         'end_date' : 'End',
-                        'locality' : 'Locality',
                         'scid' : 'Operator',
                         'zone' : 'Path26Region',
                     },axis='columns',inplace=True)
+                    physical_resources.loc[:,'Locality'] = physical_resources.loc[:,'local_area'].map(location_renamer)
                     physical_resources.drop(columns=['index','local_area'],inplace=True)
                     physical_resources.loc[:,'ServiceTerritory'] = physical_resources.loc[:,'Locality'].map(lambda s:[organization_id for organization_id,localities in regions_to_service_territories.items() if s in localities][0])
                     physical_resources = pd.melt(
@@ -494,10 +494,10 @@ class DataExporter:
                         'resource_adequacy_flexibility_category' : 'FlexibleCategory',
                         'start_date' : 'Start',
                         'end_date' : 'End',
-                        'locality' : 'Locality',
                         'operator' : 'Operator',
                         'zone' : 'Path26Region',
                     },axis='columns',inplace=True)
+                    demand_response.loc[:,'Locality'] = demand_response.loc[:,'local_area'].map(rename_locality)
                     demand_response.drop(columns=['index','third_party_program','local_area'],inplace=True)
                     demand_response.loc[:,'ServiceTerritory'] = demand_response.loc[:,'Locality'].map(lambda s:[organization_id for organization_id,localities in regions_to_service_territories.items() if s in localities][0])
                     demand_response = pd.melt(

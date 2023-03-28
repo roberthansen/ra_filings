@@ -19,9 +19,9 @@ year_ahead_filename: '\\Sf150pyclfs26\PYCLIENTFS\Users\svc_energyRA\ra_filings\d
 incremental_local_filename: '\\Sf150pyclfs26\PYCLIENTFS\Users\svc_energyRA\ra_filings\data\requirements\[yyyy]_IncrementalLocal_rev[version].xlsx'
 supply_plan_system_filename: '\\Sf150pyclfs26\PYCLIENTFS\Users\svc_energyRA\ra_filings\data\supply_plans\[yyyy]-[mm]_CAISO_SupplyPlan_System_rev[version].xls'
 supply_plan_flexible_filename: '\\Sf150pyclfs26\PYCLIENTFS\Users\svc_energyRA\ra_filings\data\supply_plans\[yyyy]-[mm]_CAISO_SupplyPlan_Flexible_rev[version].xls'
-ra_summary_filename: '\\Sf150pyclfs26\PYCLIENTFS\Users\svc_energyRA\ra_filings\data\results\MA_RASummary_[yyyy]-[mm]_copy.xlsx' #added copy to not overwrite original file (NP)
+ra_summary_filename: '\\Sf150pyclfs26\PYCLIENTFS\Users\svc_energyRA\ra_filings\data\results\MA_RASummary_[yyyy]-[mm].xlsx'
 ra_summary_template_filename: '\\Sf150pyclfs26\PYCLIENTFS\Users\svc_energyRA\ra_filings\data\templates\RASummary_template_[yyyy].xlsx'
-caiso_cross_check_filename: '\\Sf150pyclfs26\PYCLIENTFS\Users\svc_energyRA\ra_filings\data\results\RA_CAISO_SupplyPlan_CrossCheck_[yyyy]-[mm]_copy.xlsx' #added copy to not overwrite original file (NP)
+caiso_cross_check_filename: '\\Sf150pyclfs26\PYCLIENTFS\Users\svc_energyRA\ra_filings\data\results\RA_CAISO_SupplyPlan_CrossCheck_[yyyy]-[mm].xlsx'
 caiso_cross_check_template_filename: '\\Sf150pyclfs26\PYCLIENTFS\Users\svc_energyRA\ra_filings\data\templates\RA_CAISO_SupplyPlan_Crosscheck_template.xlsx'
 results_archive_filename: '\\Sf150pyclfs26\PYCLIENTFS\Users\svc_energyRA\ra_filings\data\archives\RAFilings_[yyyy]-[mm].zip'
 ezdb_root_directory: '\\Sf150pyclfs26\PYCLIENTFS\Users\DM4\BigData\EZDB\ED_RA\Data'

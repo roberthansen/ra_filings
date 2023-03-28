@@ -453,7 +453,8 @@ def get_year_ahead_tables(year_ahead,config:ConfigurationOptions):
         flexibility_cme = flexibility_cme.melt(id_vars=['organization_id'],var_name='month',value_name='flexibility_cme')
     else:
         lse_ids = [lse['id'] for lse in config.organizations.list_load_serving_entities()]
-        flexibility_cme = pd.DataFrame({'organization_id':lse_ids*12*3,'month':month_columns*3*len(lse_ids),'flexibility_cme':[0]*12*3*len(lse_ids)})
+        flexibility_cme = pd.DataFrame({
+            'organization_id':[lse_id_x for lse_id in lse_ids for lse_id_x in [lse_id]*12],'month':month_columns*len(lse_ids),'flexibility_cme':[0]*12*len(lse_ids)})
     flexibility_cme.set_index(['organization_id','month'],inplace=True)
     flexibility_cme.sort_index(inplace=True)
 
@@ -479,31 +480,6 @@ def get_year_ahead_tables(year_ahead,config:ConfigurationOptions):
 
     # total lcr:
     data_range = year_ahead['Local RA-CAM-{}'.format(filing_month.year)]['C2:L2']
-    def location_renamer(s:str):
-        s = s.lower()
-        if 'basin' in s:
-            s = 'los_angeles'
-        elif 'vent' in s:
-            s = 'ventura'
-        elif 'diego' in s or 'sdge' in s:
-            s = 'san_diego'
-        elif 'bay' in s:
-            s = 'bay_area'
-        elif 'fresno' in s:
-            s = 'fresno'
-        elif 'sierra' in s:
-            s = 'sierra'
-        elif 'stock' in s:
-            s = 'stockton'
-        elif 'kern' in s:
-            s = 'kern'
-        elif 'humb' in s:
-            s = 'humboldt'
-        elif 'ncnb' in s:
-            s = 'northern_california'
-        else:
-            s = 'non-lcr'
-        return s
     columns = list(map(location_renamer,[cell.value for cell in data_range[0]]))
     columns
     data_range = year_ahead['Local RA-CAM-{}'.format(filing_month.year)]['C4:L4']
@@ -976,3 +952,31 @@ def parse_date(date_string):
     else:
         date = ts('NaT')
     return date
+def location_renamer(s:str):
+    if isinstance(s,str):
+        s = s.lower()
+        if 'basin' in s:
+            s_out = 'los_angeles'
+        elif 'vent' in s:
+            s_out = 'ventura'
+        elif 'diego' in s or 'sdge' in s:
+            s_out = 'san_diego'
+        elif 'bay' in s:
+            s_out = 'bay_area'
+        elif 'fresno' in s:
+            s_out = 'fresno'
+        elif 'sierra' in s:
+            s_out = 'sierra'
+        elif 'stock' in s:
+            s_out = 'stockton'
+        elif 'kern' in s:
+            s_out = 'kern'
+        elif 'humb' in s:
+            s_out = 'humboldt'
+        elif 'ncnb' in s:
+            s_out = 'northern_california'
+        else:
+            s_out = 'non-lcr'
+    else:
+        s_out = 'non-lcr'
+    return s_out
