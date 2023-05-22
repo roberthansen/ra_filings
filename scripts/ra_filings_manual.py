@@ -6,13 +6,13 @@ from ra_filings import ra_filings
 #changed line 19 to point to ra_filings_config_2023.yaml
 
 if __name__=='__main__':
-    for m in [1,2,3,4]:
+    for m in [7]:
         filing_month = ts('2023-{:02d}-01'.format(m))
         download = False
-        organize = False
+        organize = True
         consolidate = True
         notify = False
-        export = True
+        export = False
 
         if any([download,organize,consolidate,notify,export]):
             ra_filings(

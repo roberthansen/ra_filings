@@ -706,7 +706,7 @@ class WorkbookConsolidator:
             caiso_cross_check['Requirements']['D{}'.format(row_number_summary+1)].number_format = '0.00'
             caiso_cross_check['Requirements']['E{}'.format(row_number_summary+1)] = '=@INDIRECT("C"&ROW())+@INDIRECT("D"&ROW())'
             caiso_cross_check['Requirements']['E{}'.format(row_number_summary+1)].number_format = '0.00'
-            caiso_cross_check['Requirements']['F{}'.format(row_number_summary+1)] = '=IFERROR(@INDIRECT("E"&ROW())/@INDIRECT("B"&ROW()),"")'
+            caiso_cross_check['Requirements']['F{}'.format(row_number_summary+1)] = '=IFERROR(ROUND(@INDIRECT("E"&ROW())/@INDIRECT("B"&ROW()),2),"")'
             caiso_cross_check['Requirements']['F{}'.format(row_number_summary+1)].number_format = '0.00%'
             caiso_cross_check['Requirements']['L{}'.format(row_number_summary+1)].value = physical_resources.loc[(physical_resources.loc[:,'organization_id']==organization_id)&(physical_resources.loc[:,'resource_adequacy_flexibility_category']==1),'resource_adequacy_committed_flexible'].sum()
             caiso_cross_check['Requirements']['N{}'.format(row_number_summary+1)].value = min(
@@ -999,6 +999,26 @@ class WorkbookConsolidator:
             )
 
         # apply conditional formatting to requirements sheet in caiso supply plan cross-check file:
+        caiso_cross_check['Requirements'].conditional_formatting.add(
+            'E{}:E{}'.format(first_row_number_summary+1,row_number_summary),
+            CellIsRule(
+                operator='lessThan',
+                formula=['@INDIRECT("B"&ROW())'],
+                stopIfTrue=False,
+                fill=PatternFill(start_color='FFC7CE',end_color='FFC7CE',fill_type='solid'),
+                font=Font(color='9C0006')
+            )
+        )
+        caiso_cross_check['Requirements'].conditional_formatting.add(
+            'F{}:F{}'.format(first_row_number_summary+1,row_number_summary),
+            CellIsRule(
+                operator='lessThan',
+                formula=[1.0],
+                stopIfTrue=False,
+                fill=PatternFill(start_color='FFC7CE',end_color='FFC7CE',fill_type='solid'),
+                font=Font(color='9C0006')
+            )
+        )
         caiso_cross_check['Requirements'].conditional_formatting.add(
             'I{}:I{}'.format(first_row_number_summary+1,row_number_summary),
             CellIsRule(
