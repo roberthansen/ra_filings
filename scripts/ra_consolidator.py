@@ -234,6 +234,9 @@ class WorkbookConsolidator:
                 'sn_path26_allocation' : sn_path26_allocation,
                 'sp26_ra_obligation' : sp26_ra_obligation,
                 'ns_path26_allocation' : ns_path26_allocation,
+                'system_rmr_credit' : total_cam_rmr.loc['system_rmr'] * cam_rmr_monthly_tracking.loc[(organization_id,filing_month),'total_revised_jurisdictional_load_share'],
+                'np26_cpe_system_cam' : np26_cpe_system_cam,
+                'sp26_cpe_system_cam' : sp26_cpe_system_cam,
                 'year_ahead_flex_rar_category1' : flexibility_requirements.loc[(organization_id,1,filing_month),'flexibility_requirement'] - flexibility_rmr.loc[(organization_id,filing_month),'flexibility_rmr'] - flexibility_cme.loc[(organization_id,filing_month),'flexibility_cme'],
                 'year_ahead_flex_rar_category2' : flexibility_requirements.loc[(organization_id,2,filing_month),'flexibility_requirement'],
                 'year_ahead_flex_rar_category3' : flexibility_requirements.loc[(organization_id,3,filing_month),'flexibility_requirement'],
@@ -305,213 +308,218 @@ class WorkbookConsolidator:
             '@INDIRECT(ADDRESS(ROW(),COLUMN()-3)))'
         for _,s in summary.iterrows():
             organization_id = s.loc['organization_id']
-            ra_summary['NP26']['A{}'.format(row_number)].value = organization_id
-            ra_summary['NP26']['B{}'.format(row_number)].value = s.loc['np26_ra_obligation']
-            ra_summary['NP26']['B{}'.format(row_number)].number_format = '0'
-            ra_summary['NP26']['E{}'.format(row_number)].value = s.loc['sn_path26_allocation']
-            ra_summary['SP26']['A{}'.format(row_number)].value = organization_id
-            ra_summary['SP26']['B{}'.format(row_number)].value = s.loc['sp26_ra_obligation']
-            ra_summary['SP26']['B{}'.format(row_number)].number_format = '0'
-            ra_summary['SP26']['E{}'.format(row_number)].value = s.loc['ns_path26_allocation']
-            ra_summary['FlexRAR']['A{}'.format(row_number)].value = organization_id
-            ra_summary['FlexRAR']['B{}'.format(row_number)] = '=@INDIRECT("E"&ROW())+@INDIRECT("G"&ROW())+@INDIRECT("I"&ROW())'
-            ra_summary['FlexRAR']['C{}'.format(row_number)] = '=@INDIRECT("F"&ROW())+@INDIRECT("H"&ROW())+@INDIRECT("J"&ROW())'
-            ra_summary['FlexRAR']['D{}'.format(row_number)] = '=IFERROR(@INDIRECT("C"&ROW())/@INDIRECT("B"&ROW()),0)'
-            ra_summary['FlexRAR']['D{}'.format(row_number)].number_format = '0.00%'
-            ra_summary['FlexRAR']['E{}'.format(row_number)] = '=ROUND(@INDIRECT("L"&ROW())+@INDIRECT("Q"&ROW()),0)'
-            ra_summary['FlexRAR']['G{}'.format(row_number)] = '=ROUND(@INDIRECT("M"&ROW())+@INDIRECT("R"&ROW()),0)'
-            ra_summary['FlexRAR']['H{}'.format(row_number)] = '=MIN(@INDIRECT("G"&ROW())+@INDIRECT("I"&ROW()),SUMIFS(PhysicalResources!$H:$H,PhysicalResources!$A:$A,@INDIRECT("A"&ROW()), PhysicalResources!$I:$I,2))'
-            ra_summary['FlexRAR']['I{}'.format(row_number)] = '=ROUND(@INDIRECT("N"&ROW())+@INDIRECT("S"&ROW()),0)'
-            ra_summary['FlexRAR']['J{}'.format(row_number)] = '=MIN(@INDIRECT("I"&ROW()),SUMIFS(PhysicalResources!$H:$H,PhysicalResources!$A:$A,@INDIRECT("A"&ROW()), PhysicalResources!$I:$I,3))'
-            ra_summary['FlexRAR']['L{}'.format(row_number)].value = s.loc['year_ahead_flex_rar_category1']
-            ra_summary['FlexRAR']['M{}'.format(row_number)].value = s.loc['year_ahead_flex_rar_category2']
-            ra_summary['FlexRAR']['N{}'.format(row_number)].value = s.loc['year_ahead_flex_rar_category3']
-            ra_summary['FlexRAR']['O{}'.format(row_number)] = '=@INDIRECT("L"&ROW())+@INDIRECT("M"&ROW())+@INDIRECT("N"&ROW())'
-            ra_summary['FlexRAR']['Q{}'.format(row_number)].value = s.loc['year_ahead_flex_incremental_category1']
-            ra_summary['FlexRAR']['R{}'.format(row_number)].value = s.loc['year_ahead_flex_incremental_category2']
-            ra_summary['FlexRAR']['S{}'.format(row_number)].value = s.loc['year_ahead_flex_incremental_category3']
-            ra_summary['FlexRAR']['T{}'.format(row_number)] = '=@INDIRECT("Q"&ROW())+@INDIRECT("R"&ROW())+@INDIRECT("S"&ROW())'
-            ra_summary['MCC_Check']['A{}'.format(row_number)] = organization_id
-            ra_summary['CertifyingOfficers']['A{}'.format(row_number)] = organization_id
-            ra_summary['LocalTrueUp']['A{}'.format(row_number)].value = organization_id
+            ra_summary['Summary'][f'H{row_number}'].value = s.loc['system_rmr_credit']
+            ra_summary['NP26'][f'A{row_number}'].value = organization_id
+            ra_summary['NP26'][f'B{row_number}'].value = s.loc['np26_ra_obligation']
+            ra_summary['NP26'][f'B{row_number}'].number_format = '0'
+            ra_summary['NP26'][f'E{row_number}'].value = s.loc['sn_path26_allocation']
+            ra_summary['NP26'][f'J{row_number}'].value = s.loc['np26_cpe_system_cam']
+            ra_summary['SP26'][f'A{row_number}'].value = organization_id
+            ra_summary['SP26'][f'B{row_number}'].value = s.loc['sp26_ra_obligation']
+            ra_summary['SP26'][f'B{row_number}'].number_format = '0'
+            ra_summary['SP26'][f'E{row_number}'].value = s.loc['ns_path26_allocation']
+            ra_summary['SP26'][f'J{row_number}'].value = s.loc['sp26_cpe_system_cam']
+            ra_summary['FlexRAR'][f'A{row_number}'].value = organization_id
+            ra_summary['FlexRAR'][f'B{row_number}'] = '=@INDIRECT("E"&ROW())+@INDIRECT("G"&ROW())+@INDIRECT("I"&ROW())'
+            ra_summary['FlexRAR'][f'C{row_number}'] = '=@INDIRECT("F"&ROW())+@INDIRECT("H"&ROW())+@INDIRECT("J"&ROW())'
+            ra_summary['FlexRAR'][f'D{row_number}'] = '=IFERROR(@INDIRECT("C"&ROW())/@INDIRECT("B"&ROW()),0)'
+            ra_summary['FlexRAR'][f'D{row_number}'].number_format = '0.00%'
+            ra_summary['FlexRAR'][f'E{row_number}'] = '=ROUND(@INDIRECT("L"&ROW())+@INDIRECT("Q"&ROW()),0)'
+            ra_summary['FlexRAR'][f'G{row_number}'] = '=ROUND(@INDIRECT("M"&ROW())+@INDIRECT("R"&ROW()),0)'
+            ra_summary['FlexRAR'][f'H{row_number}'] = '=MIN(@INDIRECT("G"&ROW())+@INDIRECT("I"&ROW()),SUMIFS(PhysicalResources!$H:$H,PhysicalResources!$A:$A,@INDIRECT("A"&ROW()), PhysicalResources!$I:$I,2))'
+            ra_summary['FlexRAR'][f'I{row_number}'] = '=ROUND(@INDIRECT("N"&ROW())+@INDIRECT("S"&ROW()),0)'
+            ra_summary['FlexRAR'][f'J{row_number}'] = '=MIN(@INDIRECT("I"&ROW()),SUMIFS(PhysicalResources!$H:$H,PhysicalResources!$A:$A,@INDIRECT("A"&ROW()), PhysicalResources!$I:$I,3))'
+            ra_summary['FlexRAR'][f'L{row_number}'].value = s.loc['year_ahead_flex_rar_category1']
+            ra_summary['FlexRAR'][f'M{row_number}'].value = s.loc['year_ahead_flex_rar_category2']
+            ra_summary['FlexRAR'][f'N{row_number}'].value = s.loc['year_ahead_flex_rar_category3']
+            ra_summary['FlexRAR'][f'O{row_number}'] = '=@INDIRECT("L"&ROW())+@INDIRECT("M"&ROW())+@INDIRECT("N"&ROW())'
+            ra_summary['FlexRAR'][f'Q{row_number}'].value = s.loc['year_ahead_flex_incremental_category1']
+            ra_summary['FlexRAR'][f'R{row_number}'].value = s.loc['year_ahead_flex_incremental_category2']
+            ra_summary['FlexRAR'][f'S{row_number}'].value = s.loc['year_ahead_flex_incremental_category3']
+            ra_summary['FlexRAR'][f'T{row_number}'] = '=@INDIRECT("Q"&ROW())+@INDIRECT("R"&ROW())+@INDIRECT("S"&ROW())'
+            ra_summary['MCC_Check'][f'A{row_number}'] = organization_id
+            ra_summary['CertifyingOfficers'][f'A{row_number}'] = organization_id
+            ra_summary['LocalTrueUp'][f'A{row_number}'].value = organization_id
             # los angeles basin local area:
-            ra_summary['LocalTrueUp']['B{}'.format(row_number)].value = s.loc['los_angeles_local_rar']
-            ra_summary['LocalTrueUp']['C{}'.format(row_number)].value = s.loc['los_angeles_incremental_load']
-            ra_summary['LocalTrueUp']['D{}'.format(row_number)].value = s.loc['los_angeles_august_demand_response']
-            ra_summary['LocalTrueUp']['E{}'.format(row_number)] = procurement('LA Basin',organization_id)
-            ra_summary['LocalTrueUp']['F{}'.format(row_number)] = compliance_check
+            ra_summary['LocalTrueUp'][f'B{row_number}'].value = s.loc['los_angeles_local_rar']
+            ra_summary['LocalTrueUp'][f'C{row_number}'].value = s.loc['los_angeles_incremental_load']
+            ra_summary['LocalTrueUp'][f'D{row_number}'].value = s.loc['los_angeles_august_demand_response']
+            ra_summary['LocalTrueUp'][f'E{row_number}'] = procurement('LA Basin',organization_id)
+            ra_summary['LocalTrueUp'][f'F{row_number}'] = compliance_check
             # big creek and ventura local area:
-            ra_summary['LocalTrueUp']['G{}'.format(row_number)].value = s.loc['ventura_local_rar']
-            ra_summary['LocalTrueUp']['H{}'.format(row_number)].value = s.loc['ventura_incremental_load']
-            ra_summary['LocalTrueUp']['I{}'.format(row_number)].value = s.loc['ventura_august_demand_response']
-            ra_summary['LocalTrueUp']['J{}'.format(row_number)] = procurement('Big Creek-Ventura',organization_id)
-            ra_summary['LocalTrueUp']['K{}'.format(row_number)] = compliance_check
+            ra_summary['LocalTrueUp'][f'G{row_number}'].value = s.loc['ventura_local_rar']
+            ra_summary['LocalTrueUp'][f'H{row_number}'].value = s.loc['ventura_incremental_load']
+            ra_summary['LocalTrueUp'][f'I{row_number}'].value = s.loc['ventura_august_demand_response']
+            ra_summary['LocalTrueUp'][f'J{row_number}'] = procurement('Big Creek-Ventura',organization_id)
+            ra_summary['LocalTrueUp'][f'K{row_number}'] = compliance_check
             # san diego local area:
-            ra_summary['LocalTrueUp']['L{}'.format(row_number)].value = s.loc['san_diego_local_rar']
-            ra_summary['LocalTrueUp']['M{}'.format(row_number)].value = s.loc['san_diego_incremental_load']
-            ra_summary['LocalTrueUp']['N{}'.format(row_number)].value = s.loc['san_diego_august_demand_response']
-            ra_summary['LocalTrueUp']['O{}'.format(row_number)] = procurement('San Diego-IV',organization_id)
-            ra_summary['LocalTrueUp']['P{}'.format(row_number)] = compliance_check
+            ra_summary['LocalTrueUp'][f'L{row_number}'].value = s.loc['san_diego_local_rar']
+            ra_summary['LocalTrueUp'][f'M{row_number}'].value = s.loc['san_diego_incremental_load']
+            ra_summary['LocalTrueUp'][f'N{row_number}'].value = s.loc['san_diego_august_demand_response']
+            ra_summary['LocalTrueUp'][f'O{row_number}'] = procurement('San Diego-IV',organization_id)
+            ra_summary['LocalTrueUp'][f'P{row_number}'] = compliance_check
             # san francisco bay local area:
-            ra_summary['LocalTrueUp']['Q{}'.format(row_number)].value = s.loc['bay_area_local_rar']
-            ra_summary['LocalTrueUp']['R{}'.format(row_number)].value = s.loc['bay_area_incremental_load']
-            ra_summary['LocalTrueUp']['S{}'.format(row_number)].value = s.loc['bay_area_august_demand_response']
-            ra_summary['LocalTrueUp']['T{}'.format(row_number)] = procurement('Bay Area',organization_id)
-            ra_summary['LocalTrueUp']['U{}'.format(row_number)] = compliance_check
+            ra_summary['LocalTrueUp'][f'Q{row_number}'].value = s.loc['bay_area_local_rar']
+            ra_summary['LocalTrueUp'][f'R{row_number}'].value = s.loc['bay_area_incremental_load']
+            ra_summary['LocalTrueUp'][f'S{row_number}'].value = s.loc['bay_area_august_demand_response']
+            ra_summary['LocalTrueUp'][f'T{row_number}'] = procurement('Bay Area',organization_id)
+            ra_summary['LocalTrueUp'][f'U{row_number}'] = compliance_check
             # humboldt county local area:
-            ra_summary['LocalTrueUp']['V{}'.format(row_number)].value = s.loc['humboldt_local_rar']
-            ra_summary['LocalTrueUp']['W{}'.format(row_number)].value = s.loc['humboldt_incremental_load']
-            ra_summary['LocalTrueUp']['X{}'.format(row_number)].value = s.loc['humboldt_august_demand_response']
-            ra_summary['LocalTrueUp']['Y{}'.format(row_number)] = procurement('Humboldt',organization_id)
-            ra_summary['LocalTrueUp']['Z{}'.format(row_number)] = compliance_check
+            ra_summary['LocalTrueUp'][f'V{row_number}'].value = s.loc['humboldt_local_rar']
+            ra_summary['LocalTrueUp'][f'W{row_number}'].value = s.loc['humboldt_incremental_load']
+            ra_summary['LocalTrueUp'][f'X{row_number}'].value = s.loc['humboldt_august_demand_response']
+            ra_summary['LocalTrueUp'][f'Y{row_number}'] = procurement('Humboldt',organization_id)
+            ra_summary['LocalTrueUp'][f'Z{row_number}'] = compliance_check
             # sierra local area:
-            ra_summary['LocalTrueUp']['AA{}'.format(row_number)].value = s.loc['sierra_local_rar']
-            ra_summary['LocalTrueUp']['AB{}'.format(row_number)].value = s.loc['sierra_incremental_load']
-            ra_summary['LocalTrueUp']['AC{}'.format(row_number)].value = s.loc['sierra_august_demand_response']
-            ra_summary['LocalTrueUp']['AD{}'.format(row_number)] = procurement('Sierra',organization_id)
-            ra_summary['LocalTrueUp']['AE{}'.format(row_number)] = compliance_check
+            ra_summary['LocalTrueUp'][f'AA{row_number}'].value = s.loc['sierra_local_rar']
+            ra_summary['LocalTrueUp'][f'AB{row_number}'].value = s.loc['sierra_incremental_load']
+            ra_summary['LocalTrueUp'][f'AC{row_number}'].value = s.loc['sierra_august_demand_response']
+            ra_summary['LocalTrueUp'][f'AD{row_number}'] = procurement('Sierra',organization_id)
+            ra_summary['LocalTrueUp'][f'AE{row_number}'] = compliance_check
             # stockton local area:
-            ra_summary['LocalTrueUp']['AF{}'.format(row_number)].value = s.loc['stockton_local_rar']
-            ra_summary['LocalTrueUp']['AG{}'.format(row_number)].value = s.loc['stockton_incremental_load']
-            ra_summary['LocalTrueUp']['AH{}'.format(row_number)].value = s.loc['stockton_august_demand_response']
-            ra_summary['LocalTrueUp']['AI{}'.format(row_number)] = procurement('Stockton',organization_id)
-            ra_summary['LocalTrueUp']['AJ{}'.format(row_number)] = compliance_check
+            ra_summary['LocalTrueUp'][f'AF{row_number}'].value = s.loc['stockton_local_rar']
+            ra_summary['LocalTrueUp'][f'AG{row_number}'].value = s.loc['stockton_incremental_load']
+            ra_summary['LocalTrueUp'][f'AH{row_number}'].value = s.loc['stockton_august_demand_response']
+            ra_summary['LocalTrueUp'][f'AI{row_number}'] = procurement('Stockton',organization_id)
+            ra_summary['LocalTrueUp'][f'AJ{row_number}'] = compliance_check
             # northern california and north bay local area:
-            ra_summary['LocalTrueUp']['AK{}'.format(row_number)].value = s.loc['northern_california_local_rar']
-            ra_summary['LocalTrueUp']['AL{}'.format(row_number)].value = s.loc['northern_california_incremental_load']
-            ra_summary['LocalTrueUp']['AM{}'.format(row_number)].value = s.loc['northern_california_august_demand_response']
-            ra_summary['LocalTrueUp']['AN{}'.format(row_number)] = procurement('NCNB',organization_id)
-            ra_summary['LocalTrueUp']['AO{}'.format(row_number)] = compliance_check
+            ra_summary['LocalTrueUp'][f'AK{row_number}'].value = s.loc['northern_california_local_rar']
+            ra_summary['LocalTrueUp'][f'AL{row_number}'].value = s.loc['northern_california_incremental_load']
+            ra_summary['LocalTrueUp'][f'AM{row_number}'].value = s.loc['northern_california_august_demand_response']
+            ra_summary['LocalTrueUp'][f'AN{row_number}'] = procurement('NCNB',organization_id)
+            ra_summary['LocalTrueUp'][f'AO{row_number}'] = compliance_check
             # fresno local area:
-            ra_summary['LocalTrueUp']['AP{}'.format(row_number)].value = s.loc['fresno_local_rar']
-            ra_summary['LocalTrueUp']['AQ{}'.format(row_number)].value = s.loc['fresno_incremental_load']
-            ra_summary['LocalTrueUp']['AR{}'.format(row_number)].value = s.loc['fresno_august_demand_response']
-            ra_summary['LocalTrueUp']['AS{}'.format(row_number)] = procurement('Fresno',organization_id)
-            ra_summary['LocalTrueUp']['AT{}'.format(row_number)] = compliance_check
+            ra_summary['LocalTrueUp'][f'AP{row_number}'].value = s.loc['fresno_local_rar']
+            ra_summary['LocalTrueUp'][f'AQ{row_number}'].value = s.loc['fresno_incremental_load']
+            ra_summary['LocalTrueUp'][f'AR{row_number}'].value = s.loc['fresno_august_demand_response']
+            ra_summary['LocalTrueUp'][f'AS{row_number}'] = procurement('Fresno',organization_id)
+            ra_summary['LocalTrueUp'][f'AT{row_number}'] = compliance_check
             # kern county local area:
-            ra_summary['LocalTrueUp']['AU{}'.format(row_number)].value = s.loc['kern_local_rar']
-            ra_summary['LocalTrueUp']['AV{}'.format(row_number)].value = s.loc['kern_incremental_load']
-            ra_summary['LocalTrueUp']['AW{}'.format(row_number)].value = s.loc['kern_august_demand_response']
-            ra_summary['LocalTrueUp']['AX{}'.format(row_number)] = procurement('Kern',organization_id)
-            ra_summary['LocalTrueUp']['AY{}'.format(row_number)] = compliance_check
+            ra_summary['LocalTrueUp'][f'AU{row_number}'].value = s.loc['kern_local_rar']
+            ra_summary['LocalTrueUp'][f'AV{row_number}'].value = s.loc['kern_incremental_load']
+            ra_summary['LocalTrueUp'][f'AW{row_number}'].value = s.loc['kern_august_demand_response']
+            ra_summary['LocalTrueUp'][f'AX{row_number}'] = procurement('Kern',organization_id)
+            ra_summary['LocalTrueUp'][f'AY{row_number}'] = compliance_check
             # pge other aggregated:
-            ra_summary['LocalTrueUp']['AZ{}'.format(row_number)] = '=@INDIRECT("V"&ROW())+@INDIRECT("AA"&ROW())+@INDIRECT("AF"&ROW())+@INDIRECT("AK"&ROW())+@INDIRECT("AP"&ROW())+@INDIRECT("AU"&ROW())'
-            ra_summary['LocalTrueUp']['BA{}'.format(row_number)] = '=@INDIRECT("W"&ROW())+@INDIRECT("AB"&ROW())+@INDIRECT("AG"&ROW())+@INDIRECT("AL"&ROW())+@INDIRECT("AQ"&ROW())+@INDIRECT("AV"&ROW())'
-            ra_summary['LocalTrueUp']['BB{}'.format(row_number)] = '=@INDIRECT("X"&ROW())+@INDIRECT("AC"&ROW())+@INDIRECT("AH"&ROW())+@INDIRECT("AM"&ROW())+@INDIRECT("AR"&ROW())+@INDIRECT("AW"&ROW())'
-            ra_summary['LocalTrueUp']['BC{}'.format(row_number)] = '=@INDIRECT("Y"&ROW())+@INDIRECT("AD"&ROW())+@INDIRECT("AI"&ROW())+@INDIRECT("AN"&ROW())+@INDIRECT("AS"&ROW())+@INDIRECT("AX"&ROW())'
-            ra_summary['LocalTrueUp']['BD{}'.format(row_number)] = compliance_check
+            ra_summary['LocalTrueUp'][f'AZ{row_number}'] = '=@INDIRECT("V"&ROW())+@INDIRECT("AA"&ROW())+@INDIRECT("AF"&ROW())+@INDIRECT("AK"&ROW())+@INDIRECT("AP"&ROW())+@INDIRECT("AU"&ROW())'
+            ra_summary['LocalTrueUp'][f'BA{row_number}'] = '=@INDIRECT("W"&ROW())+@INDIRECT("AB"&ROW())+@INDIRECT("AG"&ROW())+@INDIRECT("AL"&ROW())+@INDIRECT("AQ"&ROW())+@INDIRECT("AV"&ROW())'
+            ra_summary['LocalTrueUp'][f'BB{row_number}'] = '=@INDIRECT("X"&ROW())+@INDIRECT("AC"&ROW())+@INDIRECT("AH"&ROW())+@INDIRECT("AM"&ROW())+@INDIRECT("AR"&ROW())+@INDIRECT("AW"&ROW())'
+            ra_summary['LocalTrueUp'][f'BC{row_number}'] = '=@INDIRECT("Y"&ROW())+@INDIRECT("AD"&ROW())+@INDIRECT("AI"&ROW())+@INDIRECT("AN"&ROW())+@INDIRECT("AS"&ROW())+@INDIRECT("AX"&ROW())'
+            ra_summary['LocalTrueUp'][f'BD{row_number}'] = compliance_check
             # sce service territory:
-            ra_summary['LocalTrueUp']['BE{}'.format(row_number)] = '=@INDIRECT("B"&ROW())+@INDIRECT("G"&ROW())'
-            ra_summary['LocalTrueUp']['BF{}'.format(row_number)] = '=@INDIRECT("C"&ROW())+@INDIRECT("H"&ROW())'
-            ra_summary['LocalTrueUp']['BG{}'.format(row_number)] = '=@INDIRECT("D"&ROW())+@INDIRECT("I"&ROW())'
-            ra_summary['LocalTrueUp']['BH{}'.format(row_number)] = '=@INDIRECT("E"&ROW())+@INDIRECT("J"&ROW())'
-            ra_summary['LocalTrueUp']['BI{}'.format(row_number)] = compliance_check
+            ra_summary['LocalTrueUp'][f'BE{row_number}'] = '=@INDIRECT("B"&ROW())+@INDIRECT("G"&ROW())'
+            ra_summary['LocalTrueUp'][f'BF{row_number}'] = '=@INDIRECT("C"&ROW())+@INDIRECT("H"&ROW())'
+            ra_summary['LocalTrueUp'][f'BG{row_number}'] = '=@INDIRECT("D"&ROW())+@INDIRECT("I"&ROW())'
+            ra_summary['LocalTrueUp'][f'BH{row_number}'] = '=@INDIRECT("E"&ROW())+@INDIRECT("J"&ROW())'
+            ra_summary['LocalTrueUp'][f'BI{row_number}'] = compliance_check
             # sdge service territory:
-            ra_summary['LocalTrueUp']['BJ{}'.format(row_number)] = '=@INDIRECT("L"&ROW())'
-            ra_summary['LocalTrueUp']['BK{}'.format(row_number)] = '=@INDIRECT("M"&ROW())'
-            ra_summary['LocalTrueUp']['BL{}'.format(row_number)] = '=@INDIRECT("N"&ROW())'
-            ra_summary['LocalTrueUp']['BM{}'.format(row_number)] = '=@INDIRECT("O"&ROW())'
-            ra_summary['LocalTrueUp']['BN{}'.format(row_number)] = compliance_check
+            ra_summary['LocalTrueUp'][f'BJ{row_number}'] = '=@INDIRECT("L"&ROW())'
+            ra_summary['LocalTrueUp'][f'BK{row_number}'] = '=@INDIRECT("M"&ROW())'
+            ra_summary['LocalTrueUp'][f'BL{row_number}'] = '=@INDIRECT("N"&ROW())'
+            ra_summary['LocalTrueUp'][f'BM{row_number}'] = '=@INDIRECT("O"&ROW())'
+            ra_summary['LocalTrueUp'][f'BN{row_number}'] = compliance_check
             # pge service territory:
-            ra_summary['LocalTrueUp']['BO{}'.format(row_number)] = '=@INDIRECT("Q"&ROW())+@INDIRECT("V"&ROW())+@INDIRECT("AA"&ROW())+@INDIRECT("AF"&ROW())+@INDIRECT("AK"&ROW())+@INDIRECT("AP"&ROW())+@INDIRECT("AU"&ROW())'
-            ra_summary['LocalTrueUp']['BP{}'.format(row_number)] = '=@INDIRECT("R"&ROW())+@INDIRECT("W"&ROW())+@INDIRECT("AB"&ROW())+@INDIRECT("AG"&ROW())+@INDIRECT("AL"&ROW())+@INDIRECT("AQ"&ROW())+@INDIRECT("AV"&ROW())'
-            ra_summary['LocalTrueUp']['BQ{}'.format(row_number)] = '=@INDIRECT("S"&ROW())+@INDIRECT("X"&ROW())+@INDIRECT("AC"&ROW())+@INDIRECT("AH"&ROW())+@INDIRECT("AM"&ROW())+@INDIRECT("AR"&ROW())+@INDIRECT("AW"&ROW())'
-            ra_summary['LocalTrueUp']['BR{}'.format(row_number)] = '=@INDIRECT("T"&ROW())+@INDIRECT("Y"&ROW())+@INDIRECT("AD"&ROW())+@INDIRECT("AI"&ROW())+@INDIRECT("AN"&ROW())+@INDIRECT("AS"&ROW())+@INDIRECT("AX"&ROW())'
-            ra_summary['LocalTrueUp']['BS{}'.format(row_number)] = compliance_check
+            ra_summary['LocalTrueUp'][f'BO{row_number}'] = '=@INDIRECT("Q"&ROW())+@INDIRECT("V"&ROW())+@INDIRECT("AA"&ROW())+@INDIRECT("AF"&ROW())+@INDIRECT("AK"&ROW())+@INDIRECT("AP"&ROW())+@INDIRECT("AU"&ROW())'
+            ra_summary['LocalTrueUp'][f'BP{row_number}'] = '=@INDIRECT("R"&ROW())+@INDIRECT("W"&ROW())+@INDIRECT("AB"&ROW())+@INDIRECT("AG"&ROW())+@INDIRECT("AL"&ROW())+@INDIRECT("AQ"&ROW())+@INDIRECT("AV"&ROW())'
+            ra_summary['LocalTrueUp'][f'BQ{row_number}'] = '=@INDIRECT("S"&ROW())+@INDIRECT("X"&ROW())+@INDIRECT("AC"&ROW())+@INDIRECT("AH"&ROW())+@INDIRECT("AM"&ROW())+@INDIRECT("AR"&ROW())+@INDIRECT("AW"&ROW())'
+            ra_summary['LocalTrueUp'][f'BR{row_number}'] = '=@INDIRECT("T"&ROW())+@INDIRECT("Y"&ROW())+@INDIRECT("AD"&ROW())+@INDIRECT("AI"&ROW())+@INDIRECT("AN"&ROW())+@INDIRECT("AS"&ROW())+@INDIRECT("AX"&ROW())'
+            ra_summary['LocalTrueUp'][f'BS{row_number}'] = compliance_check
 
             # caiso supply plan cross-check:
-            caiso_cross_check['Requirements']['A{}'.format(row_number+1)] = organization_id
-            caiso_cross_check['Requirements']['B{}'.format(row_number+1)].value = s.loc[['np26_ra_obligation','sp26_ra_obligation']].sum()
-            caiso_cross_check['Requirements']['B{}'.format(row_number+1)].number_format = '0'
-            caiso_cross_check['Requirements']['H{}'.format(row_number+1)] = '=@INDIRECT("K"&ROW())+@INDIRECT("M"&ROW())+@INDIRECT("O"&ROW())'
-            caiso_cross_check['Requirements']['I{}'.format(row_number+1)] = '=@INDIRECT("L"&ROW())+@INDIRECT("N"&ROW())+@INDIRECT("P"&ROW())'
-            caiso_cross_check['Requirements']['J{}'.format(row_number+1)] = '=IFERROR(@INDIRECT("I"&ROW())/@INDIRECT("H"&ROW()),0)'
-            caiso_cross_check['Requirements']['J{}'.format(row_number+1)].number_format = '0.00%'
-            caiso_cross_check['Requirements']['K{}'.format(row_number+1)].value = s.loc[['year_ahead_flex_rar_category1','year_ahead_flex_incremental_category1']].sum()
-            caiso_cross_check['Requirements']['M{}'.format(row_number+1)].value = s.loc[['year_ahead_flex_rar_category2','year_ahead_flex_incremental_category2']].sum()
-            caiso_cross_check['Requirements']['O{}'.format(row_number+1)].value = s.loc[['year_ahead_flex_rar_category3','year_ahead_flex_incremental_category3']].sum()
-            caiso_cross_check['Requirements']['Q{}'.format(row_number+1)].value = s.loc['year_ahead_flex_rar_category1']
-            caiso_cross_check['Requirements']['R{}'.format(row_number+1)].value = s.loc['year_ahead_flex_rar_category2']
-            caiso_cross_check['Requirements']['S{}'.format(row_number+1)].value = s.loc['year_ahead_flex_rar_category3']
-            caiso_cross_check['Requirements']['T{}'.format(row_number+1)].value = s.loc[['year_ahead_flex_rar_category1','year_ahead_flex_rar_category2','year_ahead_flex_rar_category3']].sum()
+            caiso_cross_check['Requirements'][f'A{row_number+1}'] = organization_id
+            caiso_cross_check['Requirements'][f'B{row_number+1}'].value = s.loc[['np26_ra_obligation','sp26_ra_obligation']].sum()
+            caiso_cross_check['Requirements'][f'B{row_number+1}'].number_format = '0'
+            caiso_cross_check['Requirements'][f'G{row_number+1}'] = s.loc['np26_cpe_system_cam'] + s.loc['sp26_cpe_system_cam']
+            caiso_cross_check['Requirements'][f'H{row_number+1}'] = s.loc['system_rmr_credit']
+            caiso_cross_check['Requirements'][f'J{row_number+1}'] = '=@INDIRECT("M"&ROW())+@INDIRECT("O"&ROW())+@INDIRECT("Q"&ROW())'
+            caiso_cross_check['Requirements'][f'K{row_number+1}'] = '=@INDIRECT("N"&ROW())+@INDIRECT("P"&ROW())+@INDIRECT("R"&ROW())'
+            caiso_cross_check['Requirements'][f'L{row_number+1}'] = '=IFERROR(@INDIRECT("K"&ROW())/@INDIRECT("J"&ROW()),0)'
+            caiso_cross_check['Requirements'][f'L{row_number+1}'].number_format = '0.00%'
+            caiso_cross_check['Requirements'][f'M{row_number+1}'].value = s.loc[['year_ahead_flex_rar_category1','year_ahead_flex_incremental_category1']].sum()
+            caiso_cross_check['Requirements'][f'O{row_number+1}'].value = s.loc[['year_ahead_flex_rar_category2','year_ahead_flex_incremental_category2']].sum()
+            caiso_cross_check['Requirements'][f'Q{row_number+1}'].value = s.loc[['year_ahead_flex_rar_category3','year_ahead_flex_incremental_category3']].sum()
+            caiso_cross_check['Requirements'][f'S{row_number+1}'].value = s.loc['year_ahead_flex_rar_category1']
+            caiso_cross_check['Requirements'][f'T{row_number+1}'].value = s.loc['year_ahead_flex_rar_category2']
+            caiso_cross_check['Requirements'][f'U{row_number+1}'].value = s.loc['year_ahead_flex_rar_category3']
+            caiso_cross_check['Requirements'][f'V{row_number+1}'].value = s.loc[['year_ahead_flex_rar_category1','year_ahead_flex_rar_category2','year_ahead_flex_rar_category3']].sum()
             # los angeles basin local area:
-            caiso_cross_check['Requirements']['V{}'.format(row_number+1)].value = s.loc['los_angeles_local_rar']
-            caiso_cross_check['Requirements']['W{}'.format(row_number+1)].value = s.loc['los_angeles_incremental_load']
-            caiso_cross_check['Requirements']['X{}'.format(row_number+1)].value = s.loc['los_angeles_august_demand_response']
-            caiso_cross_check['Requirements']['Z{}'.format(row_number+1)] = compliance_check
+            caiso_cross_check['Requirements'][f'X{row_number+1}'].value = s.loc['los_angeles_local_rar']
+            caiso_cross_check['Requirements'][f'Y{row_number+1}'].value = s.loc['los_angeles_incremental_load']
+            caiso_cross_check['Requirements'][f'Z{row_number+1}'].value = s.loc['los_angeles_august_demand_response']
+            caiso_cross_check['Requirements'][f'AB{row_number+1}'] = compliance_check
             # big creek and ventura local area:
-            caiso_cross_check['Requirements']['AA{}'.format(row_number+1)].value = s.loc['ventura_local_rar']
-            caiso_cross_check['Requirements']['AB{}'.format(row_number+1)].value = s.loc['ventura_incremental_load']
-            caiso_cross_check['Requirements']['AC{}'.format(row_number+1)].value = s.loc['ventura_august_demand_response']
-            caiso_cross_check['Requirements']['AE{}'.format(row_number+1)] = compliance_check
+            caiso_cross_check['Requirements'][f'AC{row_number+1}'].value = s.loc['ventura_local_rar']
+            caiso_cross_check['Requirements'][f'AD{row_number+1}'].value = s.loc['ventura_incremental_load']
+            caiso_cross_check['Requirements'][f'AE{row_number+1}'].value = s.loc['ventura_august_demand_response']
+            caiso_cross_check['Requirements'][f'AG{row_number+1}'] = compliance_check
             # san diego local area:
-            caiso_cross_check['Requirements']['AF{}'.format(row_number+1)].value = s.loc['san_diego_local_rar']
-            caiso_cross_check['Requirements']['AG{}'.format(row_number+1)].value = s.loc['san_diego_incremental_load']
-            caiso_cross_check['Requirements']['AH{}'.format(row_number+1)].value = s.loc['san_diego_august_demand_response']
-            caiso_cross_check['Requirements']['AJ{}'.format(row_number+1)] = compliance_check
+            caiso_cross_check['Requirements'][f'AH{row_number+1}'].value = s.loc['san_diego_local_rar']
+            caiso_cross_check['Requirements'][f'AI{row_number+1}'].value = s.loc['san_diego_incremental_load']
+            caiso_cross_check['Requirements'][f'AJ{row_number+1}'].value = s.loc['san_diego_august_demand_response']
+            caiso_cross_check['Requirements'][f'AL{row_number+1}'] = compliance_check
             # san francisco bay local area:
-            caiso_cross_check['Requirements']['AK{}'.format(row_number+1)].value = s.loc['bay_area_local_rar']
-            caiso_cross_check['Requirements']['AL{}'.format(row_number+1)].value = s.loc['bay_area_incremental_load']
-            caiso_cross_check['Requirements']['AM{}'.format(row_number+1)].value = s.loc['bay_area_august_demand_response']
-            caiso_cross_check['Requirements']['AO{}'.format(row_number+1)] = compliance_check
+            caiso_cross_check['Requirements'][f'AM{row_number+1}'].value = s.loc['bay_area_local_rar']
+            caiso_cross_check['Requirements'][f'AN{row_number+1}'].value = s.loc['bay_area_incremental_load']
+            caiso_cross_check['Requirements'][f'AO{row_number+1}'].value = s.loc['bay_area_august_demand_response']
+            caiso_cross_check['Requirements'][f'AQ{row_number+1}'] = compliance_check
             # humboldt county local area:
-            caiso_cross_check['Requirements']['AP{}'.format(row_number+1)].value = s.loc['humboldt_local_rar']
-            caiso_cross_check['Requirements']['AQ{}'.format(row_number+1)].value = s.loc['humboldt_incremental_load']
-            caiso_cross_check['Requirements']['AR{}'.format(row_number+1)].value = s.loc['humboldt_august_demand_response']
-            caiso_cross_check['Requirements']['AT{}'.format(row_number+1)] = compliance_check
+            caiso_cross_check['Requirements'][f'AR{row_number+1}'].value = s.loc['humboldt_local_rar']
+            caiso_cross_check['Requirements'][f'AS{row_number+1}'].value = s.loc['humboldt_incremental_load']
+            caiso_cross_check['Requirements'][f'AT{row_number+1}'].value = s.loc['humboldt_august_demand_response']
+            caiso_cross_check['Requirements'][f'AV{row_number+1}'] = compliance_check
             # sierra local area:
-            caiso_cross_check['Requirements']['AU{}'.format(row_number+1)].value = s.loc['sierra_local_rar']
-            caiso_cross_check['Requirements']['AV{}'.format(row_number+1)].value = s.loc['sierra_incremental_load']
-            caiso_cross_check['Requirements']['AW{}'.format(row_number+1)].value = s.loc['sierra_august_demand_response']
-            caiso_cross_check['Requirements']['AY{}'.format(row_number+1)] = compliance_check
+            caiso_cross_check['Requirements'][f'AW{row_number+1}'].value = s.loc['sierra_local_rar']
+            caiso_cross_check['Requirements'][f'AX{row_number+1}'].value = s.loc['sierra_incremental_load']
+            caiso_cross_check['Requirements'][f'AY{row_number+1}'].value = s.loc['sierra_august_demand_response']
+            caiso_cross_check['Requirements'][f'BA{row_number+1}'] = compliance_check
             # stockton local area:
-            caiso_cross_check['Requirements']['AZ{}'.format(row_number+1)].value = s.loc['stockton_local_rar']
-            caiso_cross_check['Requirements']['BA{}'.format(row_number+1)].value = s.loc['stockton_incremental_load']
-            caiso_cross_check['Requirements']['BB{}'.format(row_number+1)].value = s.loc['stockton_august_demand_response']
-            caiso_cross_check['Requirements']['BD{}'.format(row_number+1)] = compliance_check
+            caiso_cross_check['Requirements'][f'BB{row_number+1}'].value = s.loc['stockton_local_rar']
+            caiso_cross_check['Requirements'][f'BC{row_number+1}'].value = s.loc['stockton_incremental_load']
+            caiso_cross_check['Requirements'][f'BD{row_number+1}'].value = s.loc['stockton_august_demand_response']
+            caiso_cross_check['Requirements'][f'BF{row_number+1}'] = compliance_check
             # northern california and north bay local area:
-            caiso_cross_check['Requirements']['BE{}'.format(row_number+1)].value = s.loc['northern_california_local_rar']
-            caiso_cross_check['Requirements']['BF{}'.format(row_number+1)].value = s.loc['northern_california_incremental_load']
-            caiso_cross_check['Requirements']['BG{}'.format(row_number+1)].value = s.loc['northern_california_august_demand_response']
-            caiso_cross_check['Requirements']['BI{}'.format(row_number+1)] = compliance_check
+            caiso_cross_check['Requirements'][f'BG{row_number+1}'].value = s.loc['northern_california_local_rar']
+            caiso_cross_check['Requirements'][f'BH{row_number+1}'].value = s.loc['northern_california_incremental_load']
+            caiso_cross_check['Requirements'][f'BI{row_number+1}'].value = s.loc['northern_california_august_demand_response']
+            caiso_cross_check['Requirements'][f'BK{row_number+1}'] = compliance_check
             # fresno local area:
-            caiso_cross_check['Requirements']['BJ{}'.format(row_number+1)].value = s.loc['fresno_local_rar']
-            caiso_cross_check['Requirements']['BK{}'.format(row_number+1)].value = s.loc['fresno_incremental_load']
-            caiso_cross_check['Requirements']['BL{}'.format(row_number+1)].value = s.loc['fresno_august_demand_response']
-            caiso_cross_check['Requirements']['BN{}'.format(row_number+1)] = compliance_check
+            caiso_cross_check['Requirements'][f'BL{row_number+1}'].value = s.loc['fresno_local_rar']
+            caiso_cross_check['Requirements'][f'BM{row_number+1}'].value = s.loc['fresno_incremental_load']
+            caiso_cross_check['Requirements'][f'BN{row_number+1}'].value = s.loc['fresno_august_demand_response']
+            caiso_cross_check['Requirements'][f'BP{row_number+1}'] = compliance_check
             # kern county local area:
-            caiso_cross_check['Requirements']['BO{}'.format(row_number+1)].value = s.loc['kern_local_rar']
-            caiso_cross_check['Requirements']['BP{}'.format(row_number+1)].value = s.loc['kern_incremental_load']
-            caiso_cross_check['Requirements']['BQ{}'.format(row_number+1)].value = s.loc['kern_august_demand_response']
-            caiso_cross_check['Requirements']['BS{}'.format(row_number+1)] = compliance_check
+            caiso_cross_check['Requirements'][f'BQ{row_number+1}'].value = s.loc['kern_local_rar']
+            caiso_cross_check['Requirements'][f'BR{row_number+1}'].value = s.loc['kern_incremental_load']
+            caiso_cross_check['Requirements'][f'BS{row_number+1}'].value = s.loc['kern_august_demand_response']
+            caiso_cross_check['Requirements'][f'BU{row_number+1}'] = compliance_check
             # pge other aggregated:
-            caiso_cross_check['Requirements']['BT{}'.format(row_number+1)].value = s.loc[['humboldt_local_rar','sierra_local_rar','stockton_local_rar','northern_california_local_rar','fresno_local_rar','kern_local_rar']].sum()
-            caiso_cross_check['Requirements']['BU{}'.format(row_number+1)].value = s.loc[['humboldt_incremental_load','sierra_incremental_load','stockton_incremental_load','northern_california_incremental_load','fresno_incremental_load','kern_incremental_load']].sum()
-            caiso_cross_check['Requirements']['BV{}'.format(row_number+1)].value = s.loc[['humboldt_august_demand_response','sierra_august_demand_response','stockton_august_demand_response','northern_california_august_demand_response','fresno_august_demand_response','kern_august_demand_response']].sum()
-            caiso_cross_check['Requirements']['BX{}'.format(row_number+1)] = compliance_check
+            caiso_cross_check['Requirements'][f'BV{row_number+1}'].value = s.loc[['humboldt_local_rar','sierra_local_rar','stockton_local_rar','northern_california_local_rar','fresno_local_rar','kern_local_rar']].sum()
+            caiso_cross_check['Requirements'][f'BW{row_number+1}'].value = s.loc[['humboldt_incremental_load','sierra_incremental_load','stockton_incremental_load','northern_california_incremental_load','fresno_incremental_load','kern_incremental_load']].sum()
+            caiso_cross_check['Requirements'][f'BX{row_number+1}'].value = s.loc[['humboldt_august_demand_response','sierra_august_demand_response','stockton_august_demand_response','northern_california_august_demand_response','fresno_august_demand_response','kern_august_demand_response']].sum()
+            caiso_cross_check['Requirements'][f'BZ{row_number+1}'] = compliance_check
             # sce service territory:
-            caiso_cross_check['Requirements']['BY{}'.format(row_number+1)] = s.loc[['los_angeles_local_rar','ventura_local_rar']].sum()
-            caiso_cross_check['Requirements']['BZ{}'.format(row_number+1)] = s.loc[['los_angeles_incremental_load','ventura_incremental_load']].sum()
-            caiso_cross_check['Requirements']['CA{}'.format(row_number+1)] = s.loc[['los_angeles_august_demand_response','ventura_august_demand_response']].sum()
-            caiso_cross_check['Requirements']['CC{}'.format(row_number+1)] = compliance_check
+            caiso_cross_check['Requirements'][f'CA{row_number+1}'] = s.loc[['los_angeles_local_rar','ventura_local_rar']].sum()
+            caiso_cross_check['Requirements'][f'CB{row_number+1}'] = s.loc[['los_angeles_incremental_load','ventura_incremental_load']].sum()
+            caiso_cross_check['Requirements'][f'CC{row_number+1}'] = s.loc[['los_angeles_august_demand_response','ventura_august_demand_response']].sum()
+            caiso_cross_check['Requirements'][f'CE{row_number+1}'] = compliance_check
             # sdge service territory:
-            caiso_cross_check['Requirements']['CD{}'.format(row_number+1)] = s.loc['san_diego_local_rar']
-            caiso_cross_check['Requirements']['CE{}'.format(row_number+1)] = s.loc['san_diego_incremental_load']
-            caiso_cross_check['Requirements']['CF{}'.format(row_number+1)] = s.loc['san_diego_august_demand_response']
-            caiso_cross_check['Requirements']['CH{}'.format(row_number+1)] = compliance_check
+            caiso_cross_check['Requirements'][f'CF{row_number+1}'] = s.loc['san_diego_local_rar']
+            caiso_cross_check['Requirements'][f'CG{row_number+1}'] = s.loc['san_diego_incremental_load']
+            caiso_cross_check['Requirements'][f'CH{row_number+1}'] = s.loc['san_diego_august_demand_response']
+            caiso_cross_check['Requirements'][f'CJ{row_number+1}'] = compliance_check
             # pge service territory:
-            caiso_cross_check['Requirements']['CI{}'.format(row_number+1)] = s.loc[['bay_area_local_rar','humboldt_local_rar','sierra_local_rar','stockton_local_rar','northern_california_local_rar','fresno_local_rar','kern_local_rar']].sum()
-            caiso_cross_check['Requirements']['CJ{}'.format(row_number+1)] = s.loc[['bay_area_incremental_load','humboldt_incremental_load','sierra_incremental_load','stockton_incremental_load','northern_california_incremental_load','fresno_incremental_load','kern_incremental_load']].sum()
-            caiso_cross_check['Requirements']['CK{}'.format(row_number+1)] = s.loc[['bay_area_august_demand_response','humboldt_august_demand_response','sierra_august_demand_response','stockton_august_demand_response','northern_california_august_demand_response','fresno_august_demand_response','kern_august_demand_response']].sum()
-            caiso_cross_check['Requirements']['CM{}'.format(row_number+1)] = compliance_check
+            caiso_cross_check['Requirements'][f'CK{row_number+1}'] = s.loc[['bay_area_local_rar','humboldt_local_rar','sierra_local_rar','stockton_local_rar','northern_california_local_rar','fresno_local_rar','kern_local_rar']].sum()
+            caiso_cross_check['Requirements'][f'CL{row_number+1}'] = s.loc[['bay_area_incremental_load','humboldt_incremental_load','sierra_incremental_load','stockton_incremental_load','northern_california_incremental_load','fresno_incremental_load','kern_incremental_load']].sum()
+            caiso_cross_check['Requirements'][f'CM{row_number+1}'] = s.loc[['bay_area_august_demand_response','humboldt_august_demand_response','sierra_august_demand_response','stockton_august_demand_response','northern_california_august_demand_response','fresno_august_demand_response','kern_august_demand_response']].sum()
+            caiso_cross_check['Requirements'][f'CO{row_number+1}'] = compliance_check
 
             row_number += 1
         self.consolidation_logger.commit()
 
         # total rows on local true-up sheet:
-        ra_summary['LocalTrueUp']['A{}'.format(row_number)] = 'Total:'
+        ra_summary['LocalTrueUp'][f'A{row_number}'] = 'Total:'
         for col in map(get_column_letter,range(2,72)):
-            ra_summary['LocalTrueUp']['{}{}'.format(col,row_number)] = '=SUM(INDIRECT(ADDRESS(2,COLUMN())&":"&ADDRESS(ROW()-1,COLUMN())))'
+            ra_summary['LocalTrueUp'][f'{col}{row_number}'] = '=SUM(INDIRECT(ADDRESS(2,COLUMN())&":"&ADDRESS(ROW()-1,COLUMN())))'
 
         # save and close summary and caiso supply plan cross-check files:
         ra_summary.save(str(self.config.paths.get_path('ra_summary')))
@@ -622,100 +630,100 @@ class WorkbookConsolidator:
         first_row_number_physical_resources = 2
         row_number_physical_resources = first_row_number_physical_resources
         for organization_id in active_organizations:
-            ra_summary['NP26']['C{}'.format(row_number_summary)] = '=SUMIFS(PhysicalResources!D:D,PhysicalResources!A:A,@INDIRECT("A"&ROW()),PhysicalResources!J:J,"North",PhysicalResources!F:F,"<>DR")'
-            ra_summary['NP26']['C{}'.format(row_number_summary)].fill = PatternFill(start_color='FFCC99',end_color='FFCC99',fill_type='solid')
-            ra_summary['NP26']['C{}'.format(row_number_summary)].number_format = '0.00'
-            ra_summary['NP26']['D{}'.format(row_number_summary)] = '=ROUND(@INDIRECT("H"&ROW()),2)'
-            ra_summary['NP26']['D{}'.format(row_number_summary)].number_format = '0.00'
-            ra_summary['NP26']['E{}'.format(row_number_summary)].value = 0
-            ra_summary['NP26']['E{}'.format(row_number_summary)].number_format = '0.00'
-            ra_summary['NP26']['F{}'.format(row_number_summary)] = '=MAX(@INDIRECT("B"&ROW())-@INDIRECT("C"&ROW())-@INDIRECT("D"&ROW())-@INDIRECT("E"&ROW()),0)'
-            ra_summary['NP26']['F{}'.format(row_number_summary)].fill = PatternFill(start_color='CC99FF',end_color='CC99FF',fill_type='solid')
-            ra_summary['NP26']['F{}'.format(row_number_summary)].number_format = '0.00'
-            ra_summary['NP26']['G{}'.format(row_number_summary)].value = summary.loc[organization_id,'np26dr']
-            ra_summary['NP26']['G{}'.format(row_number_summary)].number_format = '0.00'
-            ra_summary['NP26']['H{}'.format(row_number_summary)] = '={}*@INDIRECT("G"&ROW())'.format(self.config.get_option('demand_response_multiplier'))
-            ra_summary['NP26']['H{}'.format(row_number_summary)].number_format = '0.00'
-            ra_summary['NP26']['I{}'.format(row_number_summary)] = '=@INDIRECT("C"&ROW())+@INDIRECT("D"&ROW())'
-            ra_summary['NP26']['I{}'.format(row_number_summary)].number_format = '0.00'
-            ra_summary['NP26']['K{}'.format(row_number_summary)] = '=@INDIRECT("C"&ROW())+@INDIRECT("D"&ROW())-@INDIRECT("B"&ROW())'
-            ra_summary['NP26']['K{}'.format(row_number_summary)].number_format = '0.00'
-            ra_summary['NP26']['L{}'.format(row_number_summary)] = '=@INDIRECT("K"&ROW())+@INDIRECT("SP26!K"&ROW())'
-            ra_summary['NP26']['L{}'.format(row_number_summary)].number_format = '0.00'
-            ra_summary['NP26']['M{}'.format(row_number_summary)] = '=@INDIRECT("L"&ROW())-@INDIRECT("SP26!L"&ROW())'
-            ra_summary['NP26']['M{}'.format(row_number_summary)].number_format = '0.00'
-            ra_summary['SP26']['C{}'.format(row_number_summary)] = '=SUMIFS(PhysicalResources!D:D,PhysicalResources!A:A,@INDIRECT("A"&ROW()),PhysicalResources!J:J,"South",PhysicalResources!F:F, "<>DR")'
-            ra_summary['SP26']['C{}'.format(row_number_summary)].fill = PatternFill(start_color='FFCC99',end_color='FFCC99',fill_type='solid')
-            ra_summary['SP26']['C{}'.format(row_number_summary)].number_format = '0.00'
-            ra_summary['SP26']['D{}'.format(row_number_summary)] = '=ROUND(@INDIRECT("H"&ROW()),2)'
-            ra_summary['SP26']['D{}'.format(row_number_summary)].number_format = '0.00'
-            ra_summary['SP26']['E{}'.format(row_number_summary)].value = 0
-            ra_summary['SP26']['E{}'.format(row_number_summary)].number_format = '0.00'
-            ra_summary['SP26']['F{}'.format(row_number_summary)] = '=MAX(@INDIRECT("B"&ROW())-@INDIRECT("C"&ROW())-@INDIRECT("D"&ROW())-@INDIRECT("E"&ROW()),0)'
-            ra_summary['SP26']['F{}'.format(row_number_summary)].fill = PatternFill(start_color='CC99FF',end_color='CC99FF',fill_type='solid')
-            ra_summary['SP26']['F{}'.format(row_number_summary)].number_format = '0.00'
-            ra_summary['SP26']['G{}'.format(row_number_summary)] = summary.loc[organization_id,'sp26dr']
-            ra_summary['SP26']['G{}'.format(row_number_summary)].number_format = '0.00'
-            ra_summary['SP26']['H{}'.format(row_number_summary)] = '={}*@INDIRECT("G"&ROW())'.format(self.config.get_option('demand_response_multiplier'))
-            ra_summary['SP26']['H{}'.format(row_number_summary)].number_format = '0.00'
-            ra_summary['SP26']['I{}'.format(row_number_summary)] = '=@INDIRECT("C"&ROW())+@INDIRECT("D"&ROW())'
-            ra_summary['SP26']['I{}'.format(row_number_summary)].number_format = '0.00'
-            ra_summary['SP26']['K{}'.format(row_number_summary)] = '=@INDIRECT("C"&ROW())+@INDIRECT("D"&ROW())-@INDIRECT("B"&ROW())'
-            ra_summary['SP26']['K{}'.format(row_number_summary)].number_format = '0.00'
-            ra_summary['SP26']['L{}'.format(row_number_summary)] = '=@INDIRECT("K"&ROW())+@INDIRECT("NP26!K"&ROW())'
-            ra_summary['SP26']['L{}'.format(row_number_summary)].number_format = '0.00'
-            ra_summary['MCC_Check']['B{}'.format(row_number_summary)] = '=VLOOKUP(@INDIRECT("A"&ROW()),Summary!$A:$B,2,FALSE)'
-            ra_summary['MCC_Check']['C{}'.format(row_number_summary)] = '=@INDIRECT("F"&ROW())+@INDIRECT("L"&ROW())+@INDIRECT("N"&ROW())'
-            ra_summary['MCC_Check']['D{}'.format(row_number_summary)] = '=IFERROR(@INDIRECT("C"&ROW())/@INDIRECT("B"&ROW()),"")'
-            ra_summary['MCC_Check']['E{}'.format(row_number_summary)] = '=@INDIRECT("B"&ROW())*MCC_Parameters!$B$2'
-            ra_summary['MCC_Check']['F{}'.format(row_number_summary)] = '=MIN(@INDIRECT("E"&ROW()),@INDIRECT("NP26!H"&ROW())+@INDIRECT("SP26!H"&ROW()))'
-            ra_summary['MCC_Check']['G{}'.format(row_number_summary)] = '=@INDIRECT("B"&ROW())*MCC_Parameters!$B$3'
-            ra_summary['MCC_Check']['H{}'.format(row_number_summary)] = '=MIN(@INDIRECT("G"&ROW()),SUMIFS(PhysicalResources!$D:$D,PhysicalResources!$A:$A,@INDIRECT("A"&ROW()),PhysicalResources!$F:$F,1))'
-            ra_summary['MCC_Check']['I{}'.format(row_number_summary)] = '=@INDIRECT("B"&ROW())*MCC_Parameters!$B$4'
-            ra_summary['MCC_Check']['J{}'.format(row_number_summary)] = '=MIN(@INDIRECT("I"&ROW()),SUMIFS(PhysicalResources!$D:$D,PhysicalResources!$A:$A,@INDIRECT("A"&ROW()),PhysicalResources!$F:$F,2)+@INDIRECT("H"&ROW()))'
-            ra_summary['MCC_Check']['K{}'.format(row_number_summary)] = '=@INDIRECT("B"&ROW())*MCC_Parameters!$B$5'
-            ra_summary['MCC_Check']['L{}'.format(row_number_summary)] = '=MIN(@INDIRECT("K"&ROW()),SUMIFS(PhysicalResources!$D:$D,PhysicalResources!$A:$A,@INDIRECT("A"&ROW()),PhysicalResources!$F:$F,3)+@INDIRECT("J"&ROW()))'
-            ra_summary['MCC_Check']['M{}'.format(row_number_summary)] = '=@INDIRECT("B"&ROW())*MCC_Parameters!$B$6'
-            ra_summary['MCC_Check']['N{}'.format(row_number_summary)] = '=SUMIFS(PhysicalResources!$D:$D,PhysicalResources!$A:$A,@INDIRECT("A"&ROW()),PhysicalResources!$F:$F,4)'
-            ra_summary['MCC_Check']['O{}'.format(row_number_summary)] = '=@INDIRECT("B"&ROW())*MCC_Parameters!$B$7'
-            ra_summary['MCC_Check']['P{}'.format(row_number_summary)] = '=SUMIFS(PhysicalResources!$D:$D,PhysicalResources!$A:$A,@INDIRECT("A"&ROW()),PhysicalResources!$F:$F,4,PhysicalResources!$G:$G,TRUE)'
-            ra_summary['FlexRAR']['F{}'.format(row_number_summary)] = '=SUMIFS(PhysicalResources!$H:$H,PhysicalResources!$A:$A,@INDIRECT("A"&ROW()),PhysicalResources!$I:$I,1)'
-            ra_summary['CertifyingOfficers']['B{}'.format(row_number_summary)] = summary.loc[organization_id,'organization_officer_name']
-            ra_summary['CertifyingOfficers']['C{}'.format(row_number_summary)] = summary.loc[organization_id,'organization_officer_title']
-            ra_summary['CertifyingOfficers']['E{}'.format(row_number_summary)] = '=IF(@INDIRECT("D"&ROW())=@INDIRECT("B"&ROW()),"-","Yes")'
-            ra_summary['CertifyingOfficers']['G{}'.format(row_number_summary)] = '=IF(@INDIRECT("F"&ROW())=@INDIRECT("C"&ROW()),"-","Yes")'
+            ra_summary['NP26'][f'C{row_number_summary}'] = '=SUMIFS(PhysicalResources!D:D,PhysicalResources!A:A,@INDIRECT("A"&ROW()),PhysicalResources!J:J,"North",PhysicalResources!F:F,"<>DR")'
+            ra_summary['NP26'][f'C{row_number_summary}'].fill = PatternFill(start_color='FFCC99',end_color='FFCC99',fill_type='solid')
+            ra_summary['NP26'][f'C{row_number_summary}'].number_format = '0.00'
+            ra_summary['NP26'][f'D{row_number_summary}'] = '=ROUND(@INDIRECT("H"&ROW()),2)'
+            ra_summary['NP26'][f'D{row_number_summary}'].number_format = '0.00'
+            ra_summary['NP26'][f'E{row_number_summary}'].value = 0
+            ra_summary['NP26'][f'E{row_number_summary}'].number_format = '0.00'
+            ra_summary['NP26'][f'F{row_number_summary}'] = '=MAX(@INDIRECT("B"&ROW())-@INDIRECT("C"&ROW())-@INDIRECT("D"&ROW())-@INDIRECT("E"&ROW()),0)'
+            ra_summary['NP26'][f'F{row_number_summary}'].fill = PatternFill(start_color='CC99FF',end_color='CC99FF',fill_type='solid')
+            ra_summary['NP26'][f'F{row_number_summary}'].number_format = '0.00'
+            ra_summary['NP26'][f'G{row_number_summary}'].value = summary.loc[organization_id,'np26dr']
+            ra_summary['NP26'][f'G{row_number_summary}'].number_format = '0.00'
+            ra_summary['NP26'][f'H{row_number_summary}'] = '={}*@INDIRECT("G"&ROW())'.format(self.config.get_option('demand_response_multiplier'))
+            ra_summary['NP26'][f'H{row_number_summary}'].number_format = '0.00'
+            ra_summary['NP26'][f'I{row_number_summary}'] = '=@INDIRECT("C"&ROW())+@INDIRECT("D"&ROW())'
+            ra_summary['NP26'][f'I{row_number_summary}'].number_format = '0.00'
+            ra_summary['NP26'][f'L{row_number_summary}'] = '=@INDIRECT("C"&ROW())+@INDIRECT("D"&ROW())-@INDIRECT("B"&ROW())'
+            ra_summary['NP26'][f'L{row_number_summary}'].number_format = '0.00'
+            ra_summary['NP26'][f'M{row_number_summary}'] = '=@INDIRECT("K"&ROW())+@INDIRECT("SP26!K"&ROW())'
+            ra_summary['NP26'][f'M{row_number_summary}'].number_format = '0.00'
+            ra_summary['NP26'][f'N{row_number_summary}'] = '=@INDIRECT("L"&ROW())-@INDIRECT("SP26!L"&ROW())'
+            ra_summary['NP26'][f'N{row_number_summary}'].number_format = '0.00'
+            ra_summary['SP26'][f'C{row_number_summary}'] = '=SUMIFS(PhysicalResources!D:D,PhysicalResources!A:A,@INDIRECT("A"&ROW()),PhysicalResources!J:J,"South",PhysicalResources!F:F, "<>DR")'
+            ra_summary['SP26'][f'C{row_number_summary}'].fill = PatternFill(start_color='FFCC99',end_color='FFCC99',fill_type='solid')
+            ra_summary['SP26'][f'C{row_number_summary}'].number_format = '0.00'
+            ra_summary['SP26'][f'D{row_number_summary}'] = '=ROUND(@INDIRECT("H"&ROW()),2)'
+            ra_summary['SP26'][f'D{row_number_summary}'].number_format = '0.00'
+            ra_summary['SP26'][f'E{row_number_summary}'].value = 0
+            ra_summary['SP26'][f'E{row_number_summary}'].number_format = '0.00'
+            ra_summary['SP26'][f'F{row_number_summary}'] = '=MAX(@INDIRECT("B"&ROW())-@INDIRECT("C"&ROW())-@INDIRECT("D"&ROW())-@INDIRECT("E"&ROW()),0)'
+            ra_summary['SP26'][f'F{row_number_summary}'].fill = PatternFill(start_color='CC99FF',end_color='CC99FF',fill_type='solid')
+            ra_summary['SP26'][f'F{row_number_summary}'].number_format = '0.00'
+            ra_summary['SP26'][f'G{row_number_summary}'] = summary.loc[organization_id,'sp26dr']
+            ra_summary['SP26'][f'G{row_number_summary}'].number_format = '0.00'
+            ra_summary['SP26'][f'H{row_number_summary}'] = '={}*@INDIRECT("G"&ROW())'.format(self.config.get_option('demand_response_multiplier'))
+            ra_summary['SP26'][f'H{row_number_summary}'].number_format = '0.00'
+            ra_summary['SP26'][f'I{row_number_summary}'] = '=@INDIRECT("C"&ROW())+@INDIRECT("D"&ROW())'
+            ra_summary['SP26'][f'I{row_number_summary}'].number_format = '0.00'
+            ra_summary['SP26'][f'L{row_number_summary}'] = '=@INDIRECT("C"&ROW())+@INDIRECT("D"&ROW())-@INDIRECT("B"&ROW())'
+            ra_summary['SP26'][f'L{row_number_summary}'].number_format = '0.00'
+            ra_summary['SP26'][f'M{row_number_summary}'] = '=@INDIRECT("K"&ROW())+@INDIRECT("NP26!K"&ROW())'
+            ra_summary['SP26'][f'M{row_number_summary}'].number_format = '0.00'
+            ra_summary['MCC_Check'][f'B{row_number_summary}'] = '=VLOOKUP(@INDIRECT("A"&ROW()),Summary!$A:$B,2,FALSE)'
+            ra_summary['MCC_Check'][f'C{row_number_summary}'] = '=@INDIRECT("F"&ROW())+@INDIRECT("L"&ROW())+@INDIRECT("N"&ROW())'
+            ra_summary['MCC_Check'][f'D{row_number_summary}'] = '=IFERROR(@INDIRECT("C"&ROW())/@INDIRECT("B"&ROW()),"")'
+            ra_summary['MCC_Check'][f'E{row_number_summary}'] = '=@INDIRECT("B"&ROW())*MCC_Parameters!$B$2'
+            ra_summary['MCC_Check'][f'F{row_number_summary}'] = '=MIN(@INDIRECT("E"&ROW()),@INDIRECT("NP26!H"&ROW())+@INDIRECT("SP26!H"&ROW()))'
+            ra_summary['MCC_Check'][f'G{row_number_summary}'] = '=@INDIRECT("B"&ROW())*MCC_Parameters!$B$3'
+            ra_summary['MCC_Check'][f'H{row_number_summary}'] = '=MIN(@INDIRECT("G"&ROW()),SUMIFS(PhysicalResources!$D:$D,PhysicalResources!$A:$A,@INDIRECT("A"&ROW()),PhysicalResources!$F:$F,1))'
+            ra_summary['MCC_Check'][f'I{row_number_summary}'] = '=@INDIRECT("B"&ROW())*MCC_Parameters!$B$4'
+            ra_summary['MCC_Check'][f'J{row_number_summary}'] = '=MIN(@INDIRECT("I"&ROW()),SUMIFS(PhysicalResources!$D:$D,PhysicalResources!$A:$A,@INDIRECT("A"&ROW()),PhysicalResources!$F:$F,2)+@INDIRECT("H"&ROW()))'
+            ra_summary['MCC_Check'][f'K{row_number_summary}'] = '=@INDIRECT("B"&ROW())*MCC_Parameters!$B$5'
+            ra_summary['MCC_Check'][f'L{row_number_summary}'] = '=MIN(@INDIRECT("K"&ROW()),SUMIFS(PhysicalResources!$D:$D,PhysicalResources!$A:$A,@INDIRECT("A"&ROW()),PhysicalResources!$F:$F,3)+@INDIRECT("J"&ROW()))'
+            ra_summary['MCC_Check'][f'M{row_number_summary}'] = '=@INDIRECT("B"&ROW())*MCC_Parameters!$B$6'
+            ra_summary['MCC_Check'][f'N{row_number_summary}'] = '=SUMIFS(PhysicalResources!$D:$D,PhysicalResources!$A:$A,@INDIRECT("A"&ROW()),PhysicalResources!$F:$F,4)'
+            ra_summary['MCC_Check'][f'O{row_number_summary}'] = '=@INDIRECT("B"&ROW())*MCC_Parameters!$B$7'
+            ra_summary['MCC_Check'][f'P{row_number_summary}'] = '=SUMIFS(PhysicalResources!$D:$D,PhysicalResources!$A:$A,@INDIRECT("A"&ROW()),PhysicalResources!$F:$F,4,PhysicalResources!$G:$G,TRUE)'
+            ra_summary['FlexRAR'][f'F{row_number_summary}'] = '=SUMIFS(PhysicalResources!$H:$H,PhysicalResources!$A:$A,@INDIRECT("A"&ROW()),PhysicalResources!$I:$I,1)'
+            ra_summary['CertifyingOfficers'][f'B{row_number_summary}'] = summary.loc[organization_id,'organization_officer_name']
+            ra_summary['CertifyingOfficers'][f'C{row_number_summary}'] = summary.loc[organization_id,'organization_officer_title']
+            ra_summary['CertifyingOfficers'][f'E{row_number_summary}'] = '=IF(@INDIRECT("D"&ROW())=@INDIRECT("B"&ROW()),"-","Yes")'
+            ra_summary['CertifyingOfficers'][f'G{row_number_summary}'] = '=IF(@INDIRECT("F"&ROW())=@INDIRECT("C"&ROW()),"-","Yes")'
             if organization_id in previous_certifications.index:
-                ra_summary['CertifyingOfficers']['D{}'.format(row_number_summary)] = previous_certifications.loc[organization_id,'organization_officer_name']
-                ra_summary['CertifyingOfficers']['F{}'.format(row_number_summary)] = previous_certifications.loc[organization_id,'organization_officer_title']
-                ra_summary['CertifyingOfficers']['I{}'.format(row_number_summary)] = previous_certifications.loc[organization_id,'filename']
+                ra_summary['CertifyingOfficers'][f'D{row_number_summary}'] = previous_certifications.loc[organization_id,'organization_officer_name']
+                ra_summary['CertifyingOfficers'][f'F{row_number_summary}'] = previous_certifications.loc[organization_id,'organization_officer_title']
+                ra_summary['CertifyingOfficers'][f'I{row_number_summary}'] = previous_certifications.loc[organization_id,'filename']
             else:
-                ra_summary['CertifyingOfficers']['D{}'.format(row_number_summary)] = '[Record Not Found]'
-                ra_summary['CertifyingOfficers']['F{}'.format(row_number_summary)] = '[Record Not Found]'
-                ra_summary['CertifyingOfficers']['I{}'.format(row_number_summary)] = '[Record Not Found]'
+                ra_summary['CertifyingOfficers'][f'D{row_number_summary}'] = '[Record Not Found]'
+                ra_summary['CertifyingOfficers'][f'F{row_number_summary}'] = '[Record Not Found]'
+                ra_summary['CertifyingOfficers'][f'I{row_number_summary}'] = '[Record Not Found]'
             if self.config.paths.get_path('ra_monthly_filing',self.config.organizations.get_organization(organization_id)):
                 filename = self.config.paths.get_path('ra_monthly_filing',self.config.organizations.get_organization(organization_id)).name
             else:
                 filename = 'Monthly Filing Not Found'
-            ra_summary['Summary']['H{}'.format(row_number_summary)] = filename
-            ra_summary['NP26']['M{}'.format(row_number_summary)] = filename
-            ra_summary['SP26']['L{}'.format(row_number_summary)] = filename
-            ra_summary['CertifyingOfficers']['H{}'.format(row_number_summary)] = filename
-            caiso_cross_check['Requirements']['C{}'.format(row_number_summary+1)].value = physical_resources.loc[(physical_resources.loc[:,'organization_id']==organization_id),'resource_adequacy_system'].sum() - physical_resources.loc[(physical_resources.loc[:,'organization_id']==organization_id)&(physical_resources.loc[:,'resource_mcc_bucket']=='DR'),'resource_adequacy_system'].sum()
-            caiso_cross_check['Requirements']['C{}'.format(row_number_summary+1)].number_format = '0.00'
-            caiso_cross_check['Requirements']['D{}'.format(row_number_summary+1)].value = (self.config.get_option('demand_response_multiplier')) * (summary.loc[organization_id,'np26dr'] + summary.loc[organization_id,'sp26dr'])
-            caiso_cross_check['Requirements']['D{}'.format(row_number_summary+1)].number_format = '0.00'
-            caiso_cross_check['Requirements']['E{}'.format(row_number_summary+1)] = '=@INDIRECT("C"&ROW())+@INDIRECT("D"&ROW())'
-            caiso_cross_check['Requirements']['E{}'.format(row_number_summary+1)].number_format = '0.00'
-            caiso_cross_check['Requirements']['F{}'.format(row_number_summary+1)] = '=IFERROR(ROUND(@INDIRECT("E"&ROW())/@INDIRECT("B"&ROW()),2),"")'
-            caiso_cross_check['Requirements']['F{}'.format(row_number_summary+1)].number_format = '0.00%'
-            caiso_cross_check['Requirements']['L{}'.format(row_number_summary+1)].value = physical_resources.loc[(physical_resources.loc[:,'organization_id']==organization_id)&(physical_resources.loc[:,'resource_adequacy_flexibility_category']==1),'resource_adequacy_committed_flexible'].sum()
-            caiso_cross_check['Requirements']['N{}'.format(row_number_summary+1)].value = min(
-                caiso_cross_check['Requirements']['M{}'.format(row_number_summary+1)].value +
-                caiso_cross_check['Requirements']['O{}'.format(row_number_summary+1)].value,
+            ra_summary['Summary'][f'J{row_number_summary}'] = filename
+            ra_summary['NP26'][f'N{row_number_summary}'] = filename
+            ra_summary['SP26'][f'M{row_number_summary}'] = filename
+            ra_summary['CertifyingOfficers'][f'H{row_number_summary}'] = filename
+            caiso_cross_check['Requirements'][f'C{row_number_summary+1}'].value = physical_resources.loc[(physical_resources.loc[:,'organization_id']==organization_id),'resource_adequacy_system'].sum() - physical_resources.loc[(physical_resources.loc[:,'organization_id']==organization_id)&(physical_resources.loc[:,'resource_mcc_bucket']=='DR'),'resource_adequacy_system'].sum()
+            caiso_cross_check['Requirements'][f'C{row_number_summary+1}'].number_format = '0.00'
+            caiso_cross_check['Requirements'][f'D{row_number_summary+1}'].value = (self.config.get_option('demand_response_multiplier')) * (summary.loc[organization_id,'np26dr'] + summary.loc[organization_id,'sp26dr'])
+            caiso_cross_check['Requirements'][f'D{row_number_summary+1}'].number_format = '0.00'
+            caiso_cross_check['Requirements'][f'E{row_number_summary+1}'] = '=@INDIRECT("C"&ROW())+@INDIRECT("D"&ROW())'
+            caiso_cross_check['Requirements'][f'E{row_number_summary+1}'].number_format = '0.00'
+            caiso_cross_check['Requirements'][f'F{row_number_summary+1}'] = '=IFERROR(ROUND(@INDIRECT("E"&ROW())/@INDIRECT("B"&ROW()),2),"")'
+            caiso_cross_check['Requirements'][f'F{row_number_summary+1}'].number_format = '0.00%'
+            caiso_cross_check['Requirements'][f'N{row_number_summary+1}'].value = physical_resources.loc[(physical_resources.loc[:,'organization_id']==organization_id)&(physical_resources.loc[:,'resource_adequacy_flexibility_category']==1),'resource_adequacy_committed_flexible'].sum()
+            caiso_cross_check['Requirements'][f'P{row_number_summary+1}'].value = min(
+                caiso_cross_check['Requirements'][f'O{row_number_summary+1}'].value +
+                caiso_cross_check['Requirements'][f'Q{row_number_summary+1}'].value,
                 physical_resources.loc[(physical_resources.loc[:,'organization_id']==organization_id)&(physical_resources.loc[:,'resource_adequacy_flexibility_category']==2),'resource_adequacy_committed_flexible'].sum()
             )
-            caiso_cross_check['Requirements']['P{}'.format(row_number_summary+1)].value = min(
-                caiso_cross_check['Requirements']['O{}'.format(row_number_summary+1)].value,
+            caiso_cross_check['Requirements'][f'R{row_number_summary+1}'].value = min(
+                caiso_cross_check['Requirements'][f'Q{row_number_summary+1}'].value,
                 physical_resources.loc[(physical_resources.loc[:,'organization_id']==organization_id)&(physical_resources.loc[:,'resource_adequacy_flexibility_category']==3),'resource_adequacy_committed_flexible'].sum()
             )
             # calculate values for caiso cross-check file because excel
@@ -725,16 +733,16 @@ class WorkbookConsolidator:
             else:
                 demand_response_coefficient = self.config.get_option('demand_response_multiplier')
             localities = [
-                ['Y{}','los_angeles','sce'],
-                ['AD{}','ventura','sce'],
-                ['AI{}','san_diego','sdge'],
-                ['AN{}','bay_area','pge'],
-                ['AS{}','humboldt','pge'],
-                ['AX{}','sierra','pge'],
-                ['BC{}','stockton','pge'],
-                ['BH{}','northern_california','pge'],
-                ['BM{}','fresno','pge'],
-                ['BR{}','kern','pge'],
+                ['AA{}','los_angeles','sce'],
+                ['AF{}','ventura','sce'],
+                ['AK{}','san_diego','sdge'],
+                ['AP{}','bay_area','pge'],
+                ['AU{}','humboldt','pge'],
+                ['AZ{}','sierra','pge'],
+                ['BE{}','stockton','pge'],
+                ['BJ{}','northern_california','pge'],
+                ['BO{}','fresno','pge'],
+                ['BT{}','kern','pge'],
             ]
             for cell_address,locality,service_territory in localities:
                 if organization_id in ['pge','sce','sdge']:
@@ -754,10 +762,10 @@ class WorkbookConsolidator:
                         'resource_adequacy_local'
                     ].sum()
             regions = [
-                ['BW{}',['humboldt','sierra','stockton','northern_california','fresno','kern'],'pge'],
-                ['CB{}',['los_angeles','ventura'],'sce'],
-                ['CG{}',['san_diego'],'sdge'],
-                ['CL{}',['bay_area','humboldt','sierra','stockton','northern_california','fresno','kern'],'pge'],
+                ['BY{}',['humboldt','sierra','stockton','northern_california','fresno','kern'],'pge'],
+                ['CD{}',['los_angeles','ventura'],'sce'],
+                ['CI{}',['san_diego'],'sdge'],
+                ['CN{}',['bay_area','humboldt','sierra','stockton','northern_california','fresno','kern'],'pge'],
             ]
             for cell_address,localities,service_territory in regions:
                 if organization_id in ['pge','sce','sdge']:
@@ -776,29 +784,29 @@ class WorkbookConsolidator:
                         (demand_response.loc[:,'locality'].isin(localities)),
                         'resource_adequacy_local'
                     ].sum()
-            caiso_cross_check['FilingSummary']['A{}'.format(row_number_summary)] = organization_id
-            caiso_cross_check['FilingSummary']['B{}'.format(row_number_summary)] = '=SUMIF(Filings!$A:$A,@INDIRECT("A"&ROW()),Filings!$G:$G)'
-            caiso_cross_check['FilingSummary']['C{}'.format(row_number_summary)] = '=SUMIF(CAISO_Sys_SP!$C:$C,@INDIRECT("A"&ROW()),CAISO_Sys_SP!$I:$I)'
-            caiso_cross_check['FilingSummary']['D{}'.format(row_number_summary)] = '=@INDIRECT("C"&ROW())-@INDIRECT("B"&ROW())'
-            caiso_cross_check['FilingSummary']['D{}'.format(row_number_summary)].fill = PatternFill(start_color='FFF2CC',end_color='FFF2CC',fill_type='solid')
-            caiso_cross_check['FilingSummary']['E{}'.format(row_number_summary)] = '=SUMIFS(Filings!$M:$M,Filings!$A:$A,@INDIRECT("A"&ROW()),Filings!$Q:$Q,1)'
-            caiso_cross_check['FilingSummary']['F{}'.format(row_number_summary)] = '=SUMIFS(CAISO_Flex_SP!$G:$G,CAISO_Flex_SP!$B:$B,@INDIRECT("A"&ROW()),CAISO_Flex_SP!$F:$F,1)'
-            caiso_cross_check['FilingSummary']['G{}'.format(row_number_summary)] = '=@INDIRECT("F"&ROW())-@INDIRECT("E"&ROW())'
-            caiso_cross_check['FilingSummary']['G{}'.format(row_number_summary)].fill = PatternFill(start_color='FFF2CC',end_color='FFF2CC',fill_type='solid')
-            caiso_cross_check['FilingSummary']['H{}'.format(row_number_summary)] = '=SUMIFS(Filings!$M:$M,Filings!$A:$A,@INDIRECT("A"&ROW()),Filings!$Q:$Q,2)'
-            caiso_cross_check['FilingSummary']['I{}'.format(row_number_summary)] = '=SUMIFS(CAISO_Flex_SP!$G:$G,CAISO_Flex_SP!$B:$B,@INDIRECT("A"&ROWC()),CAISO_Flex_SP!$F:$F,2)'
-            caiso_cross_check['FilingSummary']['J{}'.format(row_number_summary)] = '=@INDIRECT("I"&ROW())-@INDIRECT("H"&ROW())'
-            caiso_cross_check['FilingSummary']['J{}'.format(row_number_summary)].fill = PatternFill(start_color='FFF2CC',end_color='FFF2CC',fill_type='solid')
-            caiso_cross_check['FilingSummary']['K{}'.format(row_number_summary)] = '=SUMIFS(Filings!$M:$M,Filings!$A:$A,@INDIRECT("A"&ROW()),Filings!$Q:$Q,3)'
-            caiso_cross_check['FilingSummary']['L{}'.format(row_number_summary)] = '=SUMIFS(CAISO_Flex_SP!$G:$G,CAISO_Flex_SP!$B:$B,@INDIRECT("A"&ROW()),CAISO_Flex_SP!$F:$F,3)'
-            caiso_cross_check['FilingSummary']['M{}'.format(row_number_summary)] = '=@INDIRECT("L"&ROW())-@INDIRECT("K"&ROW())'
-            caiso_cross_check['FilingSummary']['M{}'.format(row_number_summary)].fill = PatternFill(start_color='FFF2CC',end_color='FFF2CC',fill_type='solid')
-            caiso_cross_check['FilingSummary']['Y{}'.format(row_number_summary)] = '=@INDIRECT("L"&ROW())-@INDIRECT("K"&ROW())'
+            caiso_cross_check['FilingSummary'][f'A{row_number_summary}'] = organization_id
+            caiso_cross_check['FilingSummary'][f'B{row_number_summary}'] = '=SUMIF(Filings!$A:$A,@INDIRECT("A"&ROW()),Filings!$G:$G)'
+            caiso_cross_check['FilingSummary'][f'C{row_number_summary}'] = '=SUMIF(CAISO_Sys_SP!$C:$C,@INDIRECT("A"&ROW()),CAISO_Sys_SP!$I:$I)'
+            caiso_cross_check['FilingSummary'][f'D{row_number_summary}'] = '=@INDIRECT("C"&ROW())-@INDIRECT("B"&ROW())'
+            caiso_cross_check['FilingSummary'][f'D{row_number_summary}'].fill = PatternFill(start_color='FFF2CC',end_color='FFF2CC',fill_type='solid')
+            caiso_cross_check['FilingSummary'][f'E{row_number_summary}'] = '=SUMIFS(Filings!$M:$M,Filings!$A:$A,@INDIRECT("A"&ROW()),Filings!$Q:$Q,1)'
+            caiso_cross_check['FilingSummary'][f'F{row_number_summary}'] = '=SUMIFS(CAISO_Flex_SP!$G:$G,CAISO_Flex_SP!$B:$B,@INDIRECT("A"&ROW()),CAISO_Flex_SP!$F:$F,1)'
+            caiso_cross_check['FilingSummary'][f'G{row_number_summary}'] = '=@INDIRECT("F"&ROW())-@INDIRECT("E"&ROW())'
+            caiso_cross_check['FilingSummary'][f'G{row_number_summary}'].fill = PatternFill(start_color='FFF2CC',end_color='FFF2CC',fill_type='solid')
+            caiso_cross_check['FilingSummary'][f'H{row_number_summary}'] = '=SUMIFS(Filings!$M:$M,Filings!$A:$A,@INDIRECT("A"&ROW()),Filings!$Q:$Q,2)'
+            caiso_cross_check['FilingSummary'][f'I{row_number_summary}'] = '=SUMIFS(CAISO_Flex_SP!$G:$G,CAISO_Flex_SP!$B:$B,@INDIRECT("A"&ROWC()),CAISO_Flex_SP!$F:$F,2)'
+            caiso_cross_check['FilingSummary'][f'J{row_number_summary}'] = '=@INDIRECT("I"&ROW())-@INDIRECT("H"&ROW())'
+            caiso_cross_check['FilingSummary'][f'J{row_number_summary}'].fill = PatternFill(start_color='FFF2CC',end_color='FFF2CC',fill_type='solid')
+            caiso_cross_check['FilingSummary'][f'K{row_number_summary}'] = '=SUMIFS(Filings!$M:$M,Filings!$A:$A,@INDIRECT("A"&ROW()),Filings!$Q:$Q,3)'
+            caiso_cross_check['FilingSummary'][f'L{row_number_summary}'] = '=SUMIFS(CAISO_Flex_SP!$G:$G,CAISO_Flex_SP!$B:$B,@INDIRECT("A"&ROW()),CAISO_Flex_SP!$F:$F,3)'
+            caiso_cross_check['FilingSummary'][f'M{row_number_summary}'] = '=@INDIRECT("L"&ROW())-@INDIRECT("K"&ROW())'
+            caiso_cross_check['FilingSummary'][f'M{row_number_summary}'].fill = PatternFill(start_color='FFF2CC',end_color='FFF2CC',fill_type='solid')
+            caiso_cross_check['FilingSummary'][f'Y{row_number_summary}'] = '=@INDIRECT("L"&ROW())-@INDIRECT("K"&ROW())'
 
             # update log with compliance:
-            requirements = caiso_cross_check['Requirements']['B{}'.format(row_number_summary+1)].value
-            resources = caiso_cross_check['Requirements']['C{}'.format(row_number_summary+1)].value + \
-                caiso_cross_check['Requirements']['D{}'.format(row_number_summary+1)].value
+            requirements = caiso_cross_check['Requirements'][f'B{row_number_summary+1}'].value
+            resources = caiso_cross_check['Requirements'][f'C{row_number_summary+1}'].value + \
+                caiso_cross_check['Requirements'][f'D{row_number_summary+1}'].value
             if resources>=requirements:
                 compliance = 'Compliant'
             else:
@@ -916,13 +924,13 @@ class WorkbookConsolidator:
         )
 
         # create totals row in MCC_Check worksheet:
-        ra_summary['MCC_Check']['A{}'.format(row_number_summary)] = 'Total:'
+        ra_summary['MCC_Check'][f'A{row_number_summary}'] = 'Total:'
         for col in 'BCDEFGHIJKLMNOP':
             ra_summary['MCC_Check']['{}{}'.format(col,row_number_summary)] = '=SUM({0}{1}:{0}{2})'.format(col,first_row_number_summary,row_number_summary-1)
 
         # create totals row in FlexRAR worksheet:
-        ra_summary['FlexRAR']['A{}'.format(row_number_summary)] = 'Total:'
-        ra_summary['FlexRAR']['D{}'.format(row_number_summary)] = '=IFERROR(INDIRECT("C"&ROW())/@INDIRECT("B"&ROW()),0)'
+        ra_summary['FlexRAR'][f'A{row_number_summary}'] = 'Total:'
+        ra_summary['FlexRAR'][f'D{row_number_summary}'] = '=IFERROR(INDIRECT("C"&ROW())/@INDIRECT("B"&ROW()),0)'
         for col in 'BCEFGHIJLMNOQRST':
             ra_summary['FlexRAR']['{}{}'.format(col,row_number_summary)] = '=SUM({0}6:{0}{1})'.format(col,row_number_summary-1)
         for col in 'ABCDEFGHIJKLMNOPQRST':
@@ -965,20 +973,20 @@ class WorkbookConsolidator:
 
         # write total lines in np and sp worksheets:
         for sheet_name in ['NP26','SP26']:
-            ra_summary[sheet_name]['A{}'.format(row_number_summary)] = 'Total:'
-            ra_summary[sheet_name]['A{}'.format(row_number_summary)].fill = PatternFill(start_color='00FF00',end_color='00FF00',fill_type='solid')
-            for col in 'BCDEFGHI':
-                ra_summary[sheet_name]['{}{}'.format(col,row_number_summary)] = '=SUM({0}{1}:{0}{2})'.format(col,first_row_number_summary,row_number_summary-1)
-                ra_summary[sheet_name]['{}{}'.format(col,row_number_summary)].fill = PatternFill(start_color='00FF00',end_color='00FF00',fill_type='solid')
-            ra_summary[sheet_name]['I{}'.format(row_number_summary)] = '=@INDIRECT("C"&ROW())+@INDIRECT("E"&ROW())'
-            ra_summary[sheet_name]['A{}'.format(row_number_summary+1)].value = 'Net Long/Short:'
-            ra_summary[sheet_name]['C{}'.format(row_number_summary+1)].value = 'Excess in Zone:'
-            ra_summary[sheet_name]['A{}'.format(row_number_summary+1)].fill = PatternFill(start_color='CCFFCC',end_color='CCFFCC',fill_type='solid')
-            ra_summary[sheet_name]['E{}'.format(row_number_summary+1)] = '=@INDIRECT("D"&ROW()-1)+@INDIRECT("C"&ROW()-1)-@INDIRECT("B"&ROW()-1)'
+            ra_summary[sheet_name][f'A{row_number_summary}'] = 'Total:'
+            ra_summary[sheet_name][f'A{row_number_summary}'].fill = PatternFill(start_color='00FF00',end_color='00FF00',fill_type='solid')
+            for col in 'BCDEFGHIJK':
+                ra_summary[sheet_name][f'{col}{row_number_summary}'] = '=SUM({0}{1}:{0}{2})'.format(col,first_row_number_summary,row_number_summary-1)
+                ra_summary[sheet_name][f'{col}{row_number_summary}'].fill = PatternFill(start_color='00FF00',end_color='00FF00',fill_type='solid')
+            ra_summary[sheet_name][f'I{row_number_summary}'] = '=@INDIRECT("C"&ROW())+@INDIRECT("E"&ROW())'
+            ra_summary[sheet_name][f'A{row_number_summary+1}'].value = 'Net Long/Short:'
+            ra_summary[sheet_name][f'C{row_number_summary+1}'].value = 'Excess in Zone:'
+            ra_summary[sheet_name][f'A{row_number_summary+1}'].fill = PatternFill(start_color='CCFFCC',end_color='CCFFCC',fill_type='solid')
+            ra_summary[sheet_name][f'E{row_number_summary+1}'] = '=@INDIRECT("D"&ROW()-1)+@INDIRECT("C"&ROW()-1)-@INDIRECT("B"&ROW()-1)'
 
             # apply conditional formatting to columns:
             ra_summary[sheet_name].conditional_formatting.add(
-                'F{}:F{}'.format(first_row_number_summary,row_number_summary-1),
+                f'F{first_row_number_summary}:F{row_number_summary-1}',
                 CellIsRule(
                     operator='greaterThan',
                     formula=[0],
@@ -1000,7 +1008,7 @@ class WorkbookConsolidator:
 
         # apply conditional formatting to requirements sheet in caiso supply plan cross-check file:
         caiso_cross_check['Requirements'].conditional_formatting.add(
-            'E{}:E{}'.format(first_row_number_summary+1,row_number_summary),
+            f'E{first_row_number_summary+1}:E{row_number_summary}',
             CellIsRule(
                 operator='lessThan',
                 formula=['@INDIRECT("B"&ROW())'],
@@ -1010,7 +1018,7 @@ class WorkbookConsolidator:
             )
         )
         caiso_cross_check['Requirements'].conditional_formatting.add(
-            'F{}:F{}'.format(first_row_number_summary+1,row_number_summary),
+            f'F{first_row_number_summary+1}:F{row_number_summary}',
             CellIsRule(
                 operator='lessThan',
                 formula=[1.0],
@@ -1020,17 +1028,17 @@ class WorkbookConsolidator:
             )
         )
         caiso_cross_check['Requirements'].conditional_formatting.add(
-            'I{}:I{}'.format(first_row_number_summary+1,row_number_summary),
+            f'K{first_row_number_summary+1}:K{row_number_summary}',
             CellIsRule(
                 operator='lessThan',
-                formula=['@INDIRECT("H"&ROW())'],
+                formula=['@INDIRECT("J"&ROW())'],
                 stopIfTrue=False,
                 fill=PatternFill(start_color='FFC7CE',end_color='FFC7CE',fill_type='solid'),
                 font=Font(color='9C0006')
             )
         )
         caiso_cross_check['Requirements'].conditional_formatting.add(
-            'J{}:J{}'.format(first_row_number_summary+1,row_number_summary),
+            f'L{first_row_number_summary+1}:L{row_number_summary}',
             CellIsRule(
                 operator='lessThan',
                 formula=[1.0],
@@ -1040,16 +1048,16 @@ class WorkbookConsolidator:
             )
         )
         caiso_cross_check['Requirements'].conditional_formatting.add(
-            'L{}:L{}'.format(first_row_number_summary+1,row_number_summary),
+            f'N{first_row_number_summary+1}:N{row_number_summary}',
             CellIsRule(
                 operator='lessThan',
-                formula=['@INDIRECT("K"&ROW())'],
+                formula=['@INDIRECT("M"&ROW())'],
                 stopIfTrue=False,
                 fill=PatternFill(start_color='FFC7CE',end_color='FFC7CE',fill_type='solid'),
                 font=Font(color='9C0006')
             )
         )
-        for col in ['Z','AE','AJ','AO','AT','AY','BD','BI','BN','BS','BX','CC','CH','CM']:
+        for col in ['AB','AG','AL','AQ','AV','BA','BF','BK','BP','BU','BZ','CE','CJ','CO']:
             caiso_cross_check['Requirements'].conditional_formatting.add(
                 '{0}{1}:{0}{2}'.format(col,first_row_number_summary+1,row_number_summary),
                 CellIsRule(
@@ -1133,14 +1141,14 @@ class WorkbookConsolidator:
         # copy supply plan data into cross-check file:
         row_number = 2
         for _,row in supply_plan_system.iterrows():
-            caiso_cross_check['CAISO_Sys_SP']['A{}'.format(row_number)] = '=CONCATENATE(INDIRECT("C"&ROW()),INDIRECT("F"&ROW()),INDIRECT("I"&ROW()))'
-            caiso_cross_check['CAISO_Sys_SP']['B{}'.format(row_number)] = '=CONCATENATE(INDIRECT("C"&ROW()),INDIRECT("F"&ROW()))'
-            caiso_cross_check['CAISO_Sys_SP']['C{}'.format(row_number)] = '=VLOOKUP(INDIRECT("N"&ROW()),LoadServingEntities!B:C,2,FALSE)'
-            caiso_cross_check['CAISO_Sys_SP']['J{}'.format(row_number)] = '=SUMIFS(I:I,C:C,INDIRECT("C"&ROW()),F:F,INDIRECT("F"&ROW()))'
-            caiso_cross_check['CAISO_Sys_SP']['K{}'.format(row_number)] = '=SUMIFS(G:G,C:C,INDIRECT("C"&ROW()),F:F,INDIRECT("F"&ROW()))'
-            caiso_cross_check['CAISO_Sys_SP']['P{}'.format(row_number)] = '=IF(ISNA(VLOOKUP(INDIRECT("A"&ROW()),Filings!D:D,1,FALSE)),"N","-")'
+            caiso_cross_check['CAISO_Sys_SP'][f'A{row_number}'] = '=CONCATENATE(INDIRECT("C"&ROW()),INDIRECT("F"&ROW()),INDIRECT("I"&ROW()))'
+            caiso_cross_check['CAISO_Sys_SP'][f'B{row_number}'] = '=CONCATENATE(INDIRECT("C"&ROW()),INDIRECT("F"&ROW()))'
+            caiso_cross_check['CAISO_Sys_SP'][f'C{row_number}'] = '=VLOOKUP(INDIRECT("N"&ROW()),LoadServingEntities!B:C,2,FALSE)'
+            caiso_cross_check['CAISO_Sys_SP'][f'J{row_number}'] = '=SUMIFS(I:I,C:C,INDIRECT("C"&ROW()),F:F,INDIRECT("F"&ROW()))'
+            caiso_cross_check['CAISO_Sys_SP'][f'K{row_number}'] = '=SUMIFS(G:G,C:C,INDIRECT("C"&ROW()),F:F,INDIRECT("F"&ROW()))'
+            caiso_cross_check['CAISO_Sys_SP'][f'P{row_number}'] = '=IF(ISNA(VLOOKUP(INDIRECT("A"&ROW()),Filings!D:D,1,FALSE)),"N","-")'
             for column_letter in 'ABCJKP':
-                caiso_cross_check['CAISO_Sys_SP']['{}{}'.format(column_letter,row_number)].fill = PatternFill(start_color='DDEBF7',end_color='DDEBF7',fill_type='solid')
+                caiso_cross_check['CAISO_Sys_SP'][f'{column_letter}{row_number}'].fill = PatternFill(start_color='DDEBF7',end_color='DDEBF7',fill_type='solid')
             for column_index,column in enumerate(supply_plan_system.columns):
                 caiso_cross_check['CAISO_Sys_SP']['{}{}'.format('DEFGHILMNO'[column_index],row_number)].value = row.loc[column]
             row_number += 1
@@ -1148,12 +1156,12 @@ class WorkbookConsolidator:
         # copy supply plan data into cross-check file:
         row_number = 2
         for _,row in supply_plan_flexible.iterrows():
-            caiso_cross_check['CAISO_Flex_SP']['A{}'.format(row_number)] = '=CONCATENATE(INDIRECT("B"&ROW()),INDIRECT("E"&ROW()),INDIRECT("G"&ROW()))'
-            caiso_cross_check['CAISO_Flex_SP']['B{}'.format(row_number)] = '=VLOOKUP(INDIRECT("K"&ROW()),LoadServingEntities!B:C,2,FALSE)'
-            caiso_cross_check['CAISO_Flex_SP']['H{}'.format(row_number)] = '=SUMIFS(G:G,B:B,INDIRECT("B"&ROW()),E:E,INDIRECT("E"&ROW()),F:F,INDIRECT("F"&ROW()))'
-            caiso_cross_check['CAISO_Flex_SP']['M{}'.format(row_number)] = '=IF(ISNA(VLOOKUP(INDIRECT("A"&ROW()),Filings!F:F,1,FALSE)),"N","-")'
+            caiso_cross_check['CAISO_Flex_SP'][f'A{row_number}'] = '=CONCATENATE(INDIRECT("B"&ROW()),INDIRECT("E"&ROW()),INDIRECT("G"&ROW()))'
+            caiso_cross_check['CAISO_Flex_SP'][f'B{row_number}'] = '=VLOOKUP(INDIRECT("K"&ROW()),LoadServingEntities!B:C,2,FALSE)'
+            caiso_cross_check['CAISO_Flex_SP'][f'H{row_number}'] = '=SUMIFS(G:G,B:B,INDIRECT("B"&ROW()),E:E,INDIRECT("E"&ROW()),F:F,INDIRECT("F"&ROW()))'
+            caiso_cross_check['CAISO_Flex_SP'][f'M{row_number}'] = '=IF(ISNA(VLOOKUP(INDIRECT("A"&ROW()),Filings!F:F,1,FALSE)),"N","-")'
             for column_letter in 'ABHM':
-                caiso_cross_check['CAISO_Flex_SP']['{}{}'.format(column_letter,row_number)].fill = PatternFill(start_color='DDEBF7',end_color='DDEBF7',fill_type='solid')
+                caiso_cross_check['CAISO_Flex_SP'][f'{column_letter}{row_number}'].fill = PatternFill(start_color='DDEBF7',end_color='DDEBF7',fill_type='solid')
             for column_index,column in enumerate(supply_plan_flexible.columns):
                 caiso_cross_check['CAISO_Flex_SP']['{}{}'.format('CDEFGIJKL'[column_index],row_number)].value = row.loc[column]
             row_number += 1
