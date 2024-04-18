@@ -1,6 +1,6 @@
 ---
 filing_month: apr 2022
-planning_reserve_margin: 0.16
+planning_reserve_margin: 0.17
 demand_response_multiplier: 1.09
 transmission_loss_adder_pge: 1.03
 transmission_loss_adder_sce: 1.025
@@ -19,6 +19,7 @@ year_ahead_filename: '\\Sf150pyclfs26\PYCLIENTFS\Users\svc_energyRA\ra_filings\d
 incremental_local_filename: '\\Sf150pyclfs26\PYCLIENTFS\Users\svc_energyRA\ra_filings\data\requirements\[yyyy]_IncrementalLocal_rev[version].xlsx'
 supply_plan_system_filename: '\\Sf150pyclfs26\PYCLIENTFS\Users\svc_energyRA\ra_filings\data\supply_plans\[yyyy]-[mm]_CAISO_SupplyPlan_System_rev[version].xls'
 supply_plan_flexible_filename: '\\Sf150pyclfs26\PYCLIENTFS\Users\svc_energyRA\ra_filings\data\supply_plans\[yyyy]-[mm]_CAISO_SupplyPlan_Flexible_rev[version].xls'
+nqc_list_filename: '\\Sf150pyclfs26\PYCLIENTFS\Users\svc_energyRA\ra_filings\data\nqc_lists\[yyyy]_NQC_List_rev[version].xlsx'
 ra_summary_filename: '\\Sf150pyclfs26\PYCLIENTFS\Users\svc_energyRA\ra_filings\data\results\MA_RASummary_[yyyy]-[mm].xlsx'
 ra_summary_template_filename: '\\Sf150pyclfs26\PYCLIENTFS\Users\svc_energyRA\ra_filings\data\templates\RASummary_template_[yyyy].xlsx'
 caiso_cross_check_filename: '\\Sf150pyclfs26\PYCLIENTFS\Users\svc_energyRA\ra_filings\data\results\RA_CAISO_SupplyPlan_CrossCheck_[yyyy]-[mm].xlsx'

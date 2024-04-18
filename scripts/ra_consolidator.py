@@ -94,28 +94,32 @@ class WorkbookConsolidator:
         flexibility_cme = year_ahead_tables[5]
         local_rar = year_ahead_tables[6]
         cam_system = year_ahead_tables[8]
+        irp_system = year_ahead_tables[9]
         year_ahead.close()
 
         # get source data from month ahead file:
         path = self.config.paths.get_path('month_ahead')
         month_ahead = open_workbook(path,in_mem=False)
-        month_ahead_forecasts = get_month_ahead_tables(month_ahead,self.config)
+        (month_ahead_forecasts,monthly_tracking) = get_month_ahead_tables(month_ahead,self.config)
         month_ahead.close()
 
         # get source data from cam-rmr file:
-        path = self.config.paths.get_path('cam_rmr')
-        cam_rmr = open_workbook(path,in_mem=False)
-        [cam_rmr_monthly_tracking,total_cam_rmr] = get_cam_rmr_tables(cam_rmr)
-        cam_rmr.close()
+        if filing_month.year < 2024:
+            path = self.config.paths.get_path('cam_rmr')
+            cam_rmr = open_workbook(path,in_mem=False)
+            (cam_rmr_monthly_tracking,total_cam_rmr) = get_cam_rmr_tables(cam_rmr)
+            cam_rmr.close()
+        else:
+            (cam_rmr_monthly_tracking,total_cam_rmr) = (None,None)
 
         # get source data from incremental local workbook:
         if filing_month.month >= 7:
             path = self.config.paths.get_path('incremental_local')
             incremental_local = open_workbook(path)
-            [incremental_flex,incremental_local_load,local_rar_trueup] = get_incremental_local_tables(incremental_local,self.config)
+            (incremental_flex,incremental_local_load,local_rar_trueup) = get_incremental_local_tables(incremental_local,self.config)
             incremental_local.close()
         else:
-            [incremental_flex,incremental_local_load,local_rar_trueup] = [None,None,None]
+            (incremental_flex,incremental_local_load,local_rar_trueup) = (None,None,None)
 
         # open summary file and initialize summary table:
         path = self.config.paths.get_path('ra_summary')
@@ -134,52 +138,74 @@ class WorkbookConsolidator:
         def calculate_summary(row):
             organization_id = row.loc['organization_id']
             if organization_id in ('PGE','SCE','SDGE'):
-                inverse_organization_selection = list(dict.fromkeys(filter(lambda idx: idx!=organization_id,cam_rmr_monthly_tracking.index.get_level_values(0))).keys())
+                inverse_organization_selection = list(dict.fromkeys(filter(lambda idx: idx!=organization_id,monthly_tracking.index.get_level_values(0))).keys())
             else:
                 inverse_organization_selection = []
-            # NP26 summary sheet:
-            if organization_id=='PGE':
-                cam_load_share = -cam_rmr_monthly_tracking.loc[(inverse_organization_selection,filing_month),'pge_revised_nonjurisdictional_load_share'].sum()
-            else:
-                cam_load_share = cam_rmr_monthly_tracking.loc[(organization_id,filing_month),'pge_revised_nonjurisdictional_load_share']
             all_lses = list(map(lambda d: d['id'],self.config.organizations.list_load_serving_entities()))
+            # NP26 summary sheet:
+            if organization_id=='PGE' and filing_month.year<2024:
+                cam_load_share_pge = -monthly_tracking.loc[(inverse_organization_selection,filing_month),'pge_revised_nonjurisdictional_load_share'].sum()
+            elif filing_month.year<2024:
+                cam_load_share_pge = monthly_tracking.loc[(organization_id,filing_month),'pge_revised_nonjurisdictional_load_share']
+            else:
+                cam_load_share_pge = 0
+            if filing_month.year<2024:
+                np26_cam = total_cam_rmr.loc['np26_cam'] * cam_load_share_pge
+                np26_rmr = total_cam_rmr.loc['np26_rmr'] * monthly_tracking.loc[(organization_id,filing_month),'pge_revised_nonjurisdictional_load_share'] + total_cam_rmr.loc['system_rmr'] * monthly_tracking.loc[(organization_id,filing_month),'total_revised_jurisdictional_load_share']
+            else:
+                np26_cam = cam_rmr.loc[(organization_id,'north','cam'),filing_month]
+                np26_rmr = cam_rmr.loc[(organization_id,'north','rmr'),filing_month]
             np26_cpe_system_cam = np.round(
                 cam_system.loc[(cam_system.loc[:,'path_26_region']=='north'),filing_month.to_numpy().astype('datetime64[M]')].sum() * \
                 load_forecast_input_data.loc[filter(lambda i: i[0]=='PGE' and i[1]==organization_id and i[2]==filing_month,load_forecast_input_data.index),'final_coincident_peak_forecast'].sum() / \
                 load_forecast_input_data.loc[filter(lambda i: i[0]=='PGE' and i[1] in all_lses and i[2]==filing_month,load_forecast_input_data.index),'final_coincident_peak_forecast'].sum(),
                 2
             )
+            np26_irp_system_cam = irp_system.loc[(irp_system.loc[:,'path_26_region']=='north')&(irp_system.loc[:,'lse']==organization_id),filing_month]
             np26_ra_obligation = np.round(
                 (
                     # PGEload:
                     (1 + self.config.get_option('planning_reserve_margin')) * month_ahead_forecasts.loc[(organization_id,filing_month),'pge_revised_monthly_forecast']
                     # NP26CAM:
-                    -total_cam_rmr.loc['np26_cam'] * cam_load_share
+                    -np26_cam
                     # NP26RMR:
-                    -total_cam_rmr.loc['np26_rmr'] * cam_rmr_monthly_tracking.loc[(organization_id,filing_month),'pge_revised_nonjurisdictional_load_share']
-                    -total_cam_rmr.loc['system_rmr'] * cam_rmr_monthly_tracking.loc[(organization_id,filing_month),'total_revised_jurisdictional_load_share']
+                    -np26_rmr
                     # CPE System CAM:
                     -np26_cpe_system_cam
+                    # IRP System CAM:
+                    -np26_irp_system_cam
                 ),
                 0
             )
             sn_path26_allocation = 0
             # SP26 summary sheet:
-            if organization_id=='SCE':
+            if organization_id=='SCE' and filing_month.year<2024:
                 cam_load_share_sce = -cam_rmr_monthly_tracking.loc[(inverse_organization_selection,filing_month),'sce_revised_nonjurisdictional_load_share'].sum()
                 cam_load_share_sdge = cam_rmr_monthly_tracking.loc[(organization_id,filing_month),'sdge_revised_nonjurisdictional_load_share']
-            elif organization_id=='SDGE':
+            elif organization_id=='SDGE' and filing_month.year<2024:
                 cam_load_share_sce = cam_rmr_monthly_tracking.loc[(organization_id,filing_month),'sce_revised_nonjurisdictional_load_share']
                 cam_load_share_sdge = -cam_rmr_monthly_tracking.loc[(inverse_organization_selection,filing_month),'sdge_revised_nonjurisdictional_load_share'].sum()
-            else:
+            elif filing_month<2024:
                 cam_load_share_sce = cam_rmr_monthly_tracking.loc[(organization_id,filing_month),'sce_revised_nonjurisdictional_load_share']
                 cam_load_share_sdge = cam_rmr_monthly_tracking.loc[(organization_id,filing_month),'sdge_revised_nonjurisdictional_load_share']
+            else:
+                cam_load_share_sce = 0
+                cam_load_share_sdge = 0
+            if filing_month.year<2024:
+                sp26_cam = total_cam_rmr.loc['sce_cam'] * cam_load_share_sce + total_cam_rmr.loc['sdge_cam'] * cam_load_share_sdge
+                sp26_rmr = total_cam_rmr.loc['sp26_rmr'] * cam_rmr_monthly_tracking.loc[(organization_id,filing_month),'sce_revised_nonjurisdictional_load_share']
+                sce_lcr = total_cam_rmr.loc['sce_preferred_lcr_credit'] * cam_rmr_monthly_tracking.loc[(organization_id,filing_month),'sce_revised_jurisdictional_load_share']
+            else:
+                sp26_cam = cam_rmr.loc[(cam_rmr.loc[:,'lse']==organization_id)&(cam_rmr.loc[:,'path_26_region']=='south')&(cam_rmr.loc[:,'type']=='cam'),filing_month]
+                sp26_rmr = cam_rmr.loc[(cam_rmr.loc[:,'lse']==organization_id)&(cam_rmr.loc[:,'path_26_region']=='south')&(cam_rmr.loc[:,'type']=='rmr'),filing_month]
+                sce_lcr = 0
             sp26_cpe_system_cam = np.round(
                 cam_system.loc[(cam_system.loc[:,'path_26_region']=='south'),filing_month.to_numpy().astype('datetime64[M]')].sum() * \
                 load_forecast_input_data.loc[filter(lambda i:i[0]=='SCE' and i[1]==organization_id and i[2]==filing_month,load_forecast_input_data.index),'final_coincident_peak_forecast'].sum() / \
                 load_forecast_input_data.loc[filter(lambda i:i[0]=='SCE' and i[1] in all_lses and i[2]==filing_month,load_forecast_input_data.index),'final_coincident_peak_forecast'].sum(),
                 2
             )
+            sp26_irp_system_cam = irp_system.loc[(irp_system.loc[:,'path_26_region']=='south')&(irp_system.loc[:,'lse']==organization_id),filing_month]
             sp26_ra_obligation = np.round(
                 (
                     (1 + self.config.get_option('planning_reserve_margin')) * (
@@ -189,18 +215,23 @@ class WorkbookConsolidator:
                         +month_ahead_forecasts.loc[(organization_id,filing_month),'sdge_revised_monthly_forecast']
                     )
                     # SP26CAM:
-                    -total_cam_rmr.loc['sce_cam'] * cam_load_share_sce
-                    -total_cam_rmr.loc['sdge_cam'] * cam_load_share_sdge
+                    -sp26_cam
                     # SP26RMR:
-                    -total_cam_rmr.loc['sp26_rmr'] * cam_rmr_monthly_tracking.loc[(organization_id,filing_month),'sce_revised_nonjurisdictional_load_share']
+                    -sp26_rmr
                     # SCELCR:
-                    -total_cam_rmr.loc['sce_preferred_lcr_credit'] * cam_rmr_monthly_tracking.loc[(organization_id,filing_month),'sce_revised_jurisdictional_load_share']
+                    -sce_lcr
                     # CPE System CAM:
                     -sp26_cpe_system_cam
+                    # IRP System CAM:
+                    -sp26_irp_system_cam
                 ) ,
                 0
             )
             ns_path26_allocation = 0
+            if filing_month.year < 2024:
+                system_rmr_credit = total_cam_rmr.loc['system_rmr'] * cam_rmr_monthly_tracking.loc[(organization_id,filing_month),'total_revised_jurisdictional_load_share']
+            else:
+                system_rmr_credit = cam_rmr.loc[(organization_id,'system','rmr'),filing_month]
             def incremental_flex_by_category(category:int):
                 if incremental_flex is not None:
                     flex = incremental_flex.loc[(organization_id,category),'flexibility_requirement']
@@ -558,6 +589,15 @@ class WorkbookConsolidator:
         path = self.config.paths.get_path('caiso_cross_check')
         caiso_cross_check = open_workbook(path,data_only=False,read_only=False)
 
+        # load nqc list from most recent file for current year:
+        path = self.config.paths.get_path('nqc_list')
+        nqc_workbook = open_workbook(path,data_only=True,in_mem=True)
+        nqc_list = get_nqc_list(nqc_workbook,self.config)
+
+        # set the nqc list index:
+        nqc_list.set_index('resource_id',inplace=True)
+        nqc_list.sort_index(inplace=True)
+
         # initialize tables:
         summary = pd.DataFrame()
         physical_resources = pd.DataFrame()
@@ -579,13 +619,6 @@ class WorkbookConsolidator:
         # set summary table index:
         summary.set_index('organization_id',inplace=True)
         summary.sort_index(inplace=True)
-
-        # get the nqc list from the summary file:
-        nqc_list = get_nqc_list(ra_summary,self.config)
-
-        # set the nqc list index:
-        nqc_list.set_index('resource_id',inplace=True)
-        nqc_list.sort_index(inplace=True)
 
         # helper function to retrieve zone for a given resource id:
         def get_zone(resource_id: str):
@@ -623,6 +656,31 @@ class WorkbookConsolidator:
             previous_certifications = pd.DataFrame(columns=columns)
         previous_certifications.set_index('organization_id',inplace=True)
         previous_certifications.sort_index(inplace=True)
+
+        # write nqc list to summary file:
+        row_number = 2
+        for resource_id,r in nqc_list.iterrows():
+            ra_summary['NQC_List'][f'A{row_number}'].value = r.loc['generator_name']
+            ra_summary['NQC_List'][f'B{row_number}'].value = resource_id
+            ra_summary['NQC_List'][f'C{row_number}'].value = r.loc['zone']
+            ra_summary['NQC_List'][f'D{row_number}'].value = r.loc['local_area']
+            ra_summary['NQC_List'][f'E{row_number}'].value = r.loc[ts(filing_month.year,1,1).to_numpy().astype('datetime64[M]')]
+            ra_summary['NQC_List'][f'F{row_number}'].value = r.loc[ts(filing_month.year,2,1).to_numpy().astype('datetime64[M]')]
+            ra_summary['NQC_List'][f'G{row_number}'].value = r.loc[ts(filing_month.year,3,1).to_numpy().astype('datetime64[M]')]
+            ra_summary['NQC_List'][f'H{row_number}'].value = r.loc[ts(filing_month.year,4,1).to_numpy().astype('datetime64[M]')]
+            ra_summary['NQC_List'][f'I{row_number}'].value = r.loc[ts(filing_month.year,5,1).to_numpy().astype('datetime64[M]')]
+            ra_summary['NQC_List'][f'J{row_number}'].value = r.loc[ts(filing_month.year,6,1).to_numpy().astype('datetime64[M]')]
+            ra_summary['NQC_List'][f'K{row_number}'].value = r.loc[ts(filing_month.year,7,1).to_numpy().astype('datetime64[M]')]
+            ra_summary['NQC_List'][f'L{row_number}'].value = r.loc[ts(filing_month.year,8,1).to_numpy().astype('datetime64[M]')]
+            ra_summary['NQC_List'][f'M{row_number}'].value = r.loc[ts(filing_month.year,9,1).to_numpy().astype('datetime64[M]')]
+            ra_summary['NQC_List'][f'N{row_number}'].value = r.loc[ts(filing_month.year,10,1).to_numpy().astype('datetime64[M]')]
+            ra_summary['NQC_List'][f'O{row_number}'].value = r.loc[ts(filing_month.year,11,1).to_numpy().astype('datetime64[M]')]
+            ra_summary['NQC_List'][f'P{row_number}'].value = r.loc[ts(filing_month.year,12,1).to_numpy().astype('datetime64[M]')]
+            ra_summary['NQC_List'][f'Q{row_number}'].value = r.loc['dispatchable']
+            ra_summary['NQC_List'][f'R{row_number}'].value = r.loc['deliverability_status']
+            ra_summary['NQC_List'][f'S{row_number}'].value = r.loc['deliverable']
+            ra_summary['NQC_List'][f'T{row_number}'].value = r.loc['comments']
+            row_number+=1
 
         # write consolidated data and formulas to summary and caiso check files:
         first_row_number_summary = 2
@@ -1221,6 +1279,10 @@ class WorkbookConsolidator:
                     file_information.loc['archive_path'] = versions.iloc[0].loc['archive_path']
                     file_information.loc['status'] = 'Ready'
             elif ra_category=='incremental_local' and filing_month.month<=6:
+                file_information.loc['attachment_id'] = ''
+                file_information.loc['archive_path'] = ''
+                file_information.loc['status'] = 'Not Required'
+            elif ra_category=='cam_rmr' and filing_month.year>=2024:
                 file_information.loc['attachment_id'] = ''
                 file_information.loc['archive_path'] = ''
                 file_information.loc['status'] = 'Not Required'

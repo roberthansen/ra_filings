@@ -67,7 +67,7 @@ class DataExporter:
 
         out_path = self.config.paths.get_path('ezdb_organizations')
         out_path.parent.mkdir(parents=True,exist_ok=True)
-        self.logger.log('Exporting Organizations for EZDB to {}'.format(out_path.name),'INFORMATION')
+        self.logger.log(f'Exporting Organizations for EZDB to {out_path.name}','INFORMATION')
         organizations.to_csv(out_path,index=False,sep=',',quotechar='"')
 
     def write_data_sources(self):
@@ -134,7 +134,7 @@ class DataExporter:
 
         out_path = self.config.paths.get_path('ezdb_data_sources')
         out_path.parent.mkdir(parents=True,exist_ok=True)
-        self.logger.log('Exporting Data Sources for EZDB to {}'.format(out_path.name),'INFORMATION')
+        self.logger.log(f'Exporting Data Sources for EZDB to {out_path.name}','INFORMATION')
         data_sources.to_csv(out_path,index=False,sep=',',quotechar='"')
 
     def write_requirements(self):
@@ -203,7 +203,7 @@ class DataExporter:
                 'month' : 'FilingMonth',
                 'cam_credit' : 'RequirementValue',
             },axis='columns',inplace=True)
-            cam_credits.loc[:,'RequirementType'] = cam_credits.loc[:,'RequirementType'].map(lambda x: 'cam_category{:.0f}'.format(x))
+            cam_credits.loc[:,'RequirementType'] = cam_credits.loc[:,'RequirementType'].map(lambda x: f'cam_category{x:.0f}')
             cam_credits.loc[:,['LoadServingEntity','Locality','Path26Region']] = ''
             cam_credits.loc[:,'DataSource'] = [attachment_id] * len(cam_credits)
             cam_credits.loc[:,'Version'] = version
@@ -217,7 +217,7 @@ class DataExporter:
                 'month' : 'FilingMonth',
                 'flexibility_requirement' : 'RequirementValue',
             },axis='columns',inplace=True)
-            flexibility_requirements.loc[:,'RequirementType'] = flexibility_requirements.loc[:,'RequirementType'].map(lambda x: 'flex_category{:.0f}'.format(x))
+            flexibility_requirements.loc[:,'RequirementType'] = flexibility_requirements.loc[:,'RequirementType'].map(lambda x: f'flex_category{x:.0f}')
             flexibility_requirements.loc[:,['ServiceTerritory','Locality','Path26Region','Comment']] = ''
             flexibility_requirements.loc[:,'DataSource'] = [attachment_id] * len(flexibility_requirements)
             flexibility_requirements.loc[:,'Version'] = version
@@ -284,7 +284,7 @@ class DataExporter:
                 'category' : 'RequirementType',
                 'flexibility_requirement' : 'RequirementValue',
             },axis='columns',inplace=True)
-            incremental_flex.loc[:,'RequirementType'] = incremental_flex.loc[:,'RequirementType'].map(lambda x:'incremental_flex_category{:.0f}'.format(x))
+            incremental_flex.loc[:,'RequirementType'] = incremental_flex.loc[:,'RequirementType'].map(lambda x: f'incremental_flex_category{x:.0f}')
             incremental_flex.loc[:,['ServiceTerritory','Locality','Path26Region','Comment']] = ''
             incremental_flex.loc[:,'FilingMonth'] = self.config.filing_month.replace(month=7)
             incremental_flex.loc[:,'DataSource'] = [attachment_id] * len(incremental_flex)
@@ -403,7 +403,7 @@ class DataExporter:
 
         out_path = self.config.paths.get_path('ezdb_requirements')
         out_path.parent.mkdir(parents=True,exist_ok=True)
-        self.logger.log('Exporting Resource Adequacy Requirements for EZDB to {}'.format(out_path.name),'INFORMATION')
+        self.logger.log(f'Exporting Resource Adequacy Requirements for EZDB to {out_path.name}','INFORMATION')
         requirements.loc[:,columns].to_csv(out_path,index=False)
 
     def write_resources(self):
@@ -462,17 +462,35 @@ class DataExporter:
                     },axis='columns',inplace=True)
                     physical_resources.loc[:,'Locality'] = physical_resources.loc[:,'local_area'].map(location_renamer)
                     physical_resources.drop(columns=['index','local_area'],inplace=True)
-                    physical_resources.loc[:,'ServiceTerritory'] = physical_resources.loc[:,'Locality'].map(lambda s:[organization_id for organization_id,localities in regions_to_service_territories.items() if s in localities][0])
+                    physical_resources.loc[:,'ServiceTerritory'] = physical_resources.loc[:,'Locality'].map(
+                        lambda s: [organization_id for organization_id,localities in regions_to_service_territories.items() if s in localities][0]
+                    )
                     physical_resources = pd.melt(
                         physical_resources,
-                        id_vars=['LoadServingEntity','ContractID','ResourceID','MCCBucket','ContinuousAvailability','FlexibleCategory','Start','End','Operator','Path26Region','Locality','ServiceTerritory'],
+                        id_vars=[
+                            'LoadServingEntity',
+                            'ContractID',
+                            'ResourceID',
+                            'MCCBucket',
+                            'ContinuousAvailability',
+                            'FlexibleCategory',
+                            'Start',
+                            'End',
+                            'Operator',
+                            'Path26Region',
+                            'Locality',
+                            'ServiceTerritory'
+                        ],
                         var_name='CapacityType',
                         value_name='CapacityValue',
                         ignore_index=True
                     )
                     physical_resources.dropna(axis='index',subset=['CapacityValue'],inplace=True)
                     physical_resources.loc[:,'FlexibleCategory'] = physical_resources.loc[:,'FlexibleCategory'].map(lambda x: None if x=='' else x).fillna(0).astype(int)
-                    physical_resources.loc[:,'CapacityType'] = physical_resources.apply(lambda r: 'Flexible Category {}'.format(str(r.loc['FlexibleCategory'])) if r.loc['CapacityType']=='Flexible' else r.loc['CapacityType'],axis='columns')
+                    physical_resources.loc[:,'CapacityType'] = physical_resources.apply(
+                        lambda r: 'Flexible Category {}'.format(str(r.loc['FlexibleCategory'])) if r.loc['CapacityType']=='Flexible' else r.loc['CapacityType'],
+                        axis='columns'
+                    )
                     physical_resources.loc[:,'DataSource'] = attachment_id
                     physical_resources.loc[:,'Version'] = version
                     physical_resources.loc[:,'Comment'] = ''
@@ -499,17 +517,36 @@ class DataExporter:
                     },axis='columns',inplace=True)
                     demand_response.loc[:,'Locality'] = demand_response.loc[:,'local_area'].map(rename_locality)
                     demand_response.drop(columns=['index','third_party_program','local_area'],inplace=True)
-                    demand_response.loc[:,'ServiceTerritory'] = demand_response.loc[:,'Locality'].map(lambda s:[organization_id for organization_id,localities in regions_to_service_territories.items() if s in localities][0])
+                    demand_response.loc[:,'ServiceTerritory'] = demand_response.loc[:,'Locality'].map(
+                        lambda s:[organization_id for organization_id,localities in regions_to_service_territories.items() if s in localities][0]
+                    )
                     demand_response = pd.melt(
                         demand_response,
-                        id_vars=['LoadServingEntity','ContractID','ResourceID','MCCBucket','FlexibleCategory','Start','End','Locality','Operator','Path26Region','ServiceTerritory'],
+                        id_vars=[
+                            'LoadServingEntity',
+                            'ContractID',
+                            'ResourceID',
+                            'MCCBucket',
+                            'FlexibleCategory',
+                            'Start',
+                            'End',
+                            'Locality',
+                            'Operator',
+                            'Path26Region',
+                            'ServiceTerritory'
+                        ],
                         var_name='CapacityType',
                         value_name='CapacityValue',
                         ignore_index=True
                     )
                     demand_response.dropna(axis='index',subset=['CapacityValue'],inplace=True)
-                    demand_response.loc[:,'FlexibleCategory'] = demand_response.loc[:,'FlexibleCategory'].map(lambda x: None if x=='' else x).fillna(0).astype(int)
-                    demand_response.loc[:,'CapacityType'] = demand_response.apply(lambda r: 'Flexible Category {}'.format(str(r.loc['FlexibleCategory'])) if r.loc['CapacityType']=='Flexible' else r.loc['CapacityType'],axis='columns')
+                    demand_response.loc[:,'FlexibleCategory'] = demand_response.loc[:,'FlexibleCategory'].map(
+                        lambda x: None if x=='' else x
+                    ).fillna(0).astype(int)
+                    demand_response.loc[:,'CapacityType'] = demand_response.apply(
+                        lambda r: 'Flexible Category {}'.format(str(r.loc['FlexibleCategory'])) if r.loc['CapacityType']=='Flexible' else r.loc['CapacityType'],
+                        axis='columns'
+                    )
                     demand_response.loc[:,'ContinuousAvailability'] = False
                     demand_response.loc[:,'DataSource'] = [attachment_id] * len(demand_response)
                     demand_response.loc[:,'Version'] = version
@@ -525,7 +562,7 @@ class DataExporter:
 
         out_path = self.config.paths.get_path('ezdb_resources')
         out_path.parent.mkdir(parents=True,exist_ok=True)
-        self.logger.log('Exporting Physical and DR Resources for EZDB to {}'.format(out_path.name),'INFORMATION')
+        self.logger.log(f'Exporting Physical and DR Resources for EZDB to {out_path.name}','INFORMATION')
         resources.loc[:,columns].to_csv(out_path,index=False,sep=',',quotechar='"')
 
     def write_supply_plans(self):
@@ -624,7 +661,7 @@ class DataExporter:
         supply_plan_flexible.drop(columns=['validation_status'],inplace=True)
         supply_plan_flexible.loc[:,'Operator'] = supply_plan_flexible.loc[:,'Operator'].map(scid_to_organization_id)
         supply_plan_flexible.loc[:,'LoadServingEntity'] = supply_plan_flexible.loc[:,'LoadServingEntity'].map(scid_to_organization_id)
-        supply_plan_flexible.loc[:,'CapacityType'] = supply_plan_flexible.loc[:,'CapacityType'].map(lambda c: 'flexible_category_{}'.format(c))
+        supply_plan_flexible.loc[:,'CapacityType'] = supply_plan_flexible.loc[:,'CapacityType'].map(lambda c: f'flexible_category_{c}')
         supply_plan_flexible.loc[:,'DataSource'] = supply_plan_flexible_information.loc['attachment_id']
         supply_plan_flexible.loc[:,'Version'] = version
         supply_plan_flexible.loc[:,'Comment'] = ''
@@ -637,7 +674,7 @@ class DataExporter:
         # save data to file:
         out_path = self.config.paths.get_path('ezdb_supply_plans')
         out_path.parent.mkdir(parents=True,exist_ok=True)
-        self.logger.log('Exporting Supply Plans for EZDB to {}'.format(out_path.name),'INFORMATION')
+        self.logger.log(f'Exporting Supply Plans for EZDB to {out_path.name}','INFORMATION')
         supply_plans.to_csv(out_path,index=False,sep=',',quotechar='"')
 
     def write_summaries(self):
@@ -711,7 +748,7 @@ class DataExporter:
 
         # save data to file:
         out_path = self.config.paths.get_path('ezdb_summaries')
-        self.logger.log('Exporting Summaries for EZDB to {}'.format(out_path.name),'INFORMATION')
+        self.logger.log(f'Exporting Summaries for EZDB to {out_path.name}','INFORMATION')
         out_path.parent.mkdir(parents=True,exist_ok=True)
         summaries.to_csv(out_path,index=False,sep=',',quotechar='"')
 
@@ -737,15 +774,15 @@ class DataExporter:
             filename = self.config.paths.get_path('ezdb_'+table_name)
             if filename not in list(tables_master.loc[:,'FileName']):
                 row_number += 1
-                wb['TablesMaster']['A{}'.format(row_number)].value = row_number - 1
-                wb['TablesMaster']['B{}'.format(row_number)].value = table_name
-                wb['TablesMaster']['C{}'.format(row_number)].value = table_name
-                wb['TablesMaster']['D{}'.format(row_number)].value = self.config.filing_month.strftime('%YM%m')
-                wb['TablesMaster']['E{}'.format(row_number)].value = '{} Filings'.format(self.config.filing_month.strftime('%B %Y'))
-                wb['TablesMaster']['G{}'.format(row_number)].value = 0
-                wb['TablesMaster']['G{}'.format(row_number)].alignment = Alignment(horizontal='center')
-                wb['TablesMaster']['I{}'.format(row_number)].value = filename.name
-        self.logger.log('Writing Updated Master Lookup Table to {}'.format(str(master_lookup_path)),'INFORMATION')
+                wb['TablesMaster'][f'A{row_number}'].value = row_number - 1
+                wb['TablesMaster'][f'B{row_number}'].value = table_name
+                wb['TablesMaster'][f'C{row_number}'].value = table_name
+                wb['TablesMaster'][f'D{row_number}'].value = self.config.filing_month.strftime('%YM%m')
+                wb['TablesMaster'][f'E{row_number}'].value = '{} Filings'.format(self.config.filing_month.strftime('%B %Y'))
+                wb['TablesMaster'][f'G{row_number}'].value = 0
+                wb['TablesMaster'][f'G{row_number}'].alignment = Alignment(horizontal='center')
+                wb['TablesMaster'][f'I{row_number}'].value = filename.name
+        self.logger.log(f'Writing Updated Master Lookup Table to {master_lookup_path}','INFORMATION')
         wb.save(str(master_lookup_path))
         wb.close()
 

@@ -8,24 +8,26 @@ def california_state_holidays(year):
         year - an integer representing a year.
     '''
     holidays = {
-        'new_years' :  ts('{}-01-01'.format(year)),
-        'mlkjr' : ts('{}-01-01'.format(year))+td(days=20-ts('{}-01-07'.format(year)).weekday()),
-        'presidents' : ts('{}-02-01'.format(year))+td(days=20-ts('{}-02-07'.format(year)).weekday()),
-        'cesar_chavez' : ts('{}-03-31'.format(year)),
-        'memorial' : ts('{}-05-31'.format(year))+td(days=-ts('{}-05-31'.format(year)).weekday()),
-        'independence' : ts('{}-07-04'.format(year)),
-        'labor' : ts('{}-09-01'.format(year))+td(days=6-ts('{}-09-07'.format(year)).weekday()),
-        'veterans' : ts('{}-11-11'.format(year))+ \
+        'new_years' :  ts(year,1,1),
+        'mlkjr' : ts(year,1,1)+td(days=20-ts(year,1,7).weekday()),
+        'presidents' : ts(year,2,1)+td(days=20-ts(year,2,7).weekday()),
+        'cesar_chavez' : ts(year,3,31),
+        'memorial' : ts(year,5,31)+td(days=-ts(year,5,31).weekday()),
+        'independence' : ts(year,7,4),
+        'labor' : ts(year,9,1)+td(days=6-ts(year,9,7).weekday()),
+        'veterans' : ts(year,11,11)+ \
             td(days=0+\
-                (ts('{}-11-11'.format(year)).weekday()==6)- \
-                (ts('{}-11-11'.format(year)).weekday()==5)
+                (1 if ts(year,11,11).weekday()==6 else 0)- \
+                (1 if ts(year,11,11).weekday()==5 else 0)
             ),
-        'thanksgiving' : ts('{}-11-01'.format(year))+td(days=27-(ts('{}-11-07'.format(year)).weekday()-3)%7),
-        'day_after_thanksgiving' : ts('{}-11-01'.format(year))+td(days=28-(ts('{}-11-07'.format(year)).weekday()-3)%7),
-        'christmas' : ts('{}-12-25'.format(year))+ \
+        'thanksgiving' : ts(year,11,1)+ \
+            td(days=27-(ts(year,11,7).weekday()-3)%7),
+        'day_after_thanksgiving' : ts(year,11,1)+ \
+            td(days=28-(ts(year,11,7).weekday()-3)%7),
+        'christmas' : ts(year,12,25)+ \
             td(days=0+\
-                (ts('{}-12-25'.format(year)).weekday()==6)+ \
-                2*(ts('{}-12-25'.format(year)).weekday()==5)
+                (1 if ts(year,12,25).weekday()==6 else 0)+ \
+                (2 if ts(year,12,25).weekday()==5 else 0)
             ),
     }
     return holidays

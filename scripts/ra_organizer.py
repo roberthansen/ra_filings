@@ -86,6 +86,7 @@ class Organizer:
                                 'CAMRMR',
                                 'monthlytracking',
                             ],
+                            'nqc_list' : r'(\d{4}) NQC List',
                         }
                         wb = load_workbook(in_mem_file,data_only=True,read_only=True)
                         # monthly filing:
@@ -171,6 +172,13 @@ class Organizer:
                         elif all([sheetname in wb.sheetnames for sheetname in sheetnames['cam_rmr']]) and email_information.loc['group']=='internal':
                             effective_date = pd.to_datetime(dt.strptime(' '.join(re.match(r'(\w{3})MA(\d{2})',wb['CAMRMR']['A1'].value).groups()),'%b %y'))
                             set_attachment_value('ra_category','cam_rmr')
+                            set_attachment_value('organization_id','CPUC')
+                            set_attachment_value('effective_date',effective_date)
+                        # nqc list:
+                        elif any([re.match(sheetnames['nqc_list'], s) for s in wb.sheetnames]):
+                            matching_sheetnames = filter(lambda s: s,[re.match(sheetnames['nqc_list'], s) for s in wb.sheetnames])
+                            effective_date = ts(min([int(x.groups()[0]) for x in matching_sheetnames]),1,1)
+                            set_attachment_value('ra_category','nqc_list')
                             set_attachment_value('organization_id','CPUC')
                             set_attachment_value('effective_date',effective_date)
                         else:
@@ -323,19 +331,20 @@ class Organizer:
                 downloaded from kiteworks
         '''
         attachment = self.attachment_logger.data.loc[(self.attachment_logger.data.loc[:,'attachment_id']==attachment_id),:].iloc[0]
-        download_path = attachment.loc['download_path']
-        archive_path = attachment.loc['archive_path']
-        if type(archive_path)==str:
-            if Path(download_path).is_file() and not Path(archive_path).is_file():
-                Path(archive_path).parent.mkdir(parents=True,exist_ok=True)
-                shutil.copyfile(download_path,archive_path)
-                self.logger.log('Copying {} to {}'.format(download_path,archive_path),'INFORMATION')
+        root_directory = Path(self.config.get_option('archive_root_directory'))
+        download_path = Path(attachment.loc['download_path'])
+        archive_path = Path(attachment.loc['archive_path'])
+        if archive_path.name!='':
+            if download_path.is_file() and not archive_path.is_file():
+                archive_path.parent.mkdir(parents=True,exist_ok=True)
+                shutil.copyfile(download_path,root_directory/archive_path)
+                self.logger.log('Copying {} to {}'.format(download_path.relative_to(root_directory),archive_path),'INFORMATION')
             elif Path(archive_path).is_file():
-                self.logger.log('Skipping File {} -- Already Exists in Archive as {}'.format(download_path,archive_path),'INFORMATION')
+                self.logger.log('Skipping File {} -- Already Exists in Archive as {}'.format(download_path.relative_to(root_directory),archive_path),'INFORMATION')
             else:
-                self.logger.log('Unable to Copy {} to Archive'.format(download_path),'INFORMATION')
+                self.logger.log('Unable to Copy {} to Archive'.format(download_path.relative_to(root_directory)),'INFORMATION')
         else:
-            self.logger.log('Skipping File {} -- Does Not Match Any RA Templates'.format(download_path),'INFORMATION')
+            self.logger.log('Skipping File {} -- Does Not Match Any RA Templates'.format(download_path.relative_to(root_directory)),'INFORMATION')
 
     def copy_rename_all(self):
         '''
@@ -363,6 +372,10 @@ class Organizer:
             (
                 (self.attachment_logger.data.loc[:,'ra_category']=='incremental_local') & \
                 (self.attachment_logger.data.loc[:,'effective_date']==filing_month.replace(month=7))
+            ) | \
+            (
+                (self.attachment_logger.data.loc[:,'ra_category']=='nqc_list') & \
+                (self.attachment_logger.data.loc[:,'effective_date']==filing_month.replace(month=1))
             ),'attachment_id']
         for attachment_id in current_attachment_ids:
             self.copy_rename(attachment_id)

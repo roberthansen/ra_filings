@@ -46,6 +46,7 @@ class ConfigurationOptions:
             'incremental_local_filename' : None,
             'supply_plan_system_filename' : None,
             'supply_plan_flexible_filename' : None,
+            'nqc_list_filename' : None,
             'ra_summary_filename' : None,
             'ra_summary_template_filename' : None,
             'caiso_cross_check_filename' : None,
@@ -120,7 +121,7 @@ class ConfigurationOptions:
         '''
         calculates the due date for a given filing month, defaulting to the
         filing month defined for the class instance.
-    
+
         parameters:
             filing_month - a pandas timestamp object representing a day within
                 the filing month
@@ -164,6 +165,7 @@ class Paths:
             'incremental_local' : config.get_option('incremental_local_filename'),
             'supply_plan_system' : config.get_option('supply_plan_system_filename'),
             'supply_plan_flexible' : config.get_option('supply_plan_flexible_filename'),
+            'nqc_list' : config.get_option('nqc_list_filename'),
             'ra_summary' : config.get_option('ra_summary_filename'),
             'ra_summary_template' : config.get_option('ra_summary_template_filename'),
             'caiso_cross_check' : config.get_option('caiso_cross_check_filename'),
@@ -221,7 +223,7 @@ class Paths:
             '[mmmm]' : pd.to_datetime(date).strftime('%B'),
             '[organization_id]' : organization['id'],
             '[organization_name]' : organization['name'],
-            '[version]' : '{:02.0f}'.format(version),
+            '[version]' : f'{version:02.0f}',
         }
         for token in re.findall(r'\[\w[_A-Za-z]*\]',filename):
             if token in replacements.keys():
@@ -517,7 +519,7 @@ class EmailFilter:
                         pass
         else:
             self.email_filter_path = None
-    
+
     def check_email_subject(self,email_subject:str):
         '''
         compares an input email subject string against the lists of keywords to

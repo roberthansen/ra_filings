@@ -5,6 +5,7 @@ import warnings
 import pandas as pd
 from pathlib import Path
 from itertools import chain
+from functools import reduce
 from datetime import time
 from pandas import Timestamp as ts, Timedelta as td
 from openpyxl import load_workbook
@@ -61,9 +62,9 @@ def get_data_range(worksheet:Worksheet,lse_column:str,data_columns:str,config:Co
     last_row = 0
     organization_ids = [organization['id'].lower() for organization in config.organizations.list_load_serving_entities()]
     for row_number in range(1,worksheet.max_row+1):
-        if first_row==0 and str(worksheet['{}{}'.format(lse_column,row_number)].value).lower() in organization_ids:
+        if first_row==0 and str(worksheet[f'{lse_column}{row_number}'].value).lower() in organization_ids:
             first_row = row_number
-        if first_row>0 and last_row==0 and str(worksheet['{}{}'.format(lse_column,row_number+1)].value).lower() in ('none','total','total:','total cpuc juris'):
+        if first_row>0 and last_row==0 and str(worksheet[f'{lse_column}{row_number+1}'].value).lower() in ('none','total','total:','total cpuc juris'):
             last_row = row_number
             break
     if first_row>0 and last_row>0:
@@ -71,8 +72,8 @@ def get_data_range(worksheet:Worksheet,lse_column:str,data_columns:str,config:Co
         data_range = []
         for row_number in range(first_row,last_row+1):
             data_range.append(
-                [worksheet['{}{}'.format(lse_column,row_number)]] + \
-                [worksheet['{}{}'.format(data_column,row_number)] for data_column in data_columns]
+                [worksheet[f'{lse_column}{row_number}']] + \
+                [worksheet[f'{data_column}{row_number}'] for data_column in data_columns]
             )
     else:
         # return a list containing an empty list;
@@ -183,22 +184,6 @@ def read_ra_monthly_filing(organization:dict,config:ConfigurationOptions,logger:
         'zone',
         'local_area',
     ]
-    month_ahead_cam_rmr_columns = [
-        'month',
-        'sp26_cam_capacity',
-        'np26_cam_capacity',
-        'np26_rmr',
-        'sp26_rmr',
-        'system_rmr',
-        'pge_cpm_credit',
-        'sce_cpm_credit',
-        'sdge_cpm_credit',
-    ]
-    cpe_system_cam_columns = [
-        'month',
-        'sp26_cam_capacity',
-        'np26_cam_capacity',
-    ]
     if ra_monthly_filing is not None:
         logger.log('Reading Filing Data for {name} ({id})'.format(**organization),'INFORMATION')
         sheet_names = [
@@ -283,7 +268,7 @@ def read_ra_monthly_filing(organization:dict,config:ConfigurationOptions,logger:
             # retrieve physical resources table:
             last_row = ra_monthly_filing['I_Phys_Res_Import_RA_Res'].max_row
             if last_row > 5:
-                physical_resources = data_range_to_dataframe(physical_resources_columns,ra_monthly_filing['I_Phys_Res_Import_RA_Res']['A5:N{}'.format(last_row)])
+                physical_resources = data_range_to_dataframe(physical_resources_columns,ra_monthly_filing[f'I_Phys_Res_Import_RA_Res']['A5:N{last_row}'])
                 physical_resources.loc[:,'contract_id'] = physical_resources.loc[:,'contract_id'].map(lambda x: None if pd.isnull(x) or str(x).strip()=='' else x)
                 physical_resources.loc[:,'resource_id'] = physical_resources.loc[:,'resource_id'].map(lambda x: None if pd.isnull(x) or str(x).strip()=='' else x)
                 physical_resources.loc[:,'start_date'] = physical_resources.loc[:,'start_date'].map(parse_date)
@@ -306,7 +291,7 @@ def read_ra_monthly_filing(organization:dict,config:ConfigurationOptions,logger:
             # retrieve demand response table:
             last_row = ra_monthly_filing['III_Demand_Response'].max_row
             if last_row > 17:
-                demand_response = data_range_to_dataframe(demand_response_columns,ra_monthly_filing['III_Demand_Response']['A17:N{}'.format(last_row)])
+                demand_response = data_range_to_dataframe(demand_response_columns,ra_monthly_filing[f'III_Demand_Response']['A17:N{last_row}'])
                 demand_response.loc[:,'contract_id'] = demand_response.loc[:,'contract_id'].map(lambda x: None if pd.isnull(x) or str(x).strip()=='' else x)
                 demand_response.loc[:,'program_id'] = demand_response.loc[:,'program_id'].map(lambda x: None if pd.isnull(x) or str(x).strip()=='' else x)
                 demand_response.loc[:,'start_date'] = demand_response.loc[:,'start_date'].map(parse_date)
@@ -510,7 +495,32 @@ def get_year_ahead_tables(year_ahead,config:ConfigurationOptions):
     else:
         sce_cam_system = pd.DataFrame(columns=columns+['path_26_region'])
     cam_system = pd.concat([pge_cam_system,sce_cam_system],ignore_index=True)
-    return (load_forecast_input_data,demand_response_allocation,cam_credits,flexibility_requirements,flexibility_rmr,flexibility_cme,local_rar,total_lcr,cam_system)
+
+    # irp system:
+    columns = ['id'] + month_columns
+    id_re = re.compile(r'^(.+)([NS]P26)\s*IRP$')
+    irp_system = get_table(year_ahead['IRP System'],'Jan. System NQC',{'rows':1,'columns':-1})
+    irp_system.loc[:,'lse'] = irp_system.loc[:,'id'].map(lambda s: id_re.match(s).groups[0])
+    irp_system.loc[(irp_system.loc[:,'id'].map(lambda s: id_re.match(s).groups[1])=='NP26'),'path_26_region'] = 'north'
+    irp_system.loc[(irp_system.loc[:,'id'].map(lambda s: id_re.match(s).groups[1])=='SP26'),'path_26_region'] = 'south'
+    irp_system.loc = irp_system.loc[:,['lse','path-26_region']+month_columns]
+
+    # year-ahead cam/rmr allocation:
+    columns = ['id'] + month_columns
+    if filing_month.year>=2024:
+        id_re = re.compile(r'^(.+)([NS]P26)\s*(CAM|RMR)$')
+        cam_rmr = get_table(year_ahead['Local RA-CAM-{}'.format(filing_month.year)],'YA CAM Allocatons (this flows into LSE table 8)',{'rows':13,'columns':-1})
+        cam_rmr.loc[:,'lse'] = cam_rmr.loc[:,'id'].map(lambda s: id_re.match(s).groups[0])
+        cam_rmr.loc[(cam_rmr.loc[:,'id'].map(lambda s: id_re.match(s).groups[1])=='NP26'),'path_26_region'] = 'north'
+        cam_rmr.loc[(cam_rmr.loc[:,'id'].map(lambda s: id_re.match(s).groups[1])=='SP26'),'path_26_region'] = 'south'
+        cam_rmr.loc[(cam_rmr.loc[:,'id'].map(lambda s: id_re.match(s).groups[1])=='System'),'path_26_region'] = 'system'
+        cam_rmr.loc[:,'type'] = cam_rmr.loc[:,'id'].map(lambda s: id_re.match(s).groups[2].lower())
+    else:
+        cam_rmr = pd.DataFrame(columns=columns)
+    cam_rmr.set_index(['lse','path_26_region','type'])
+    cam_rmr.sort_index(inplace=True)
+
+    return (load_forecast_input_data,demand_response_allocation,cam_credits,flexibility_requirements,flexibility_rmr,flexibility_cme,local_rar,total_lcr,cam_system,irp_system,cam_rmr)
 
 def get_incremental_local_tables(incremental_local,config:ConfigurationOptions):
     '''
@@ -582,8 +592,11 @@ def get_incremental_local_tables(incremental_local,config:ConfigurationOptions):
 def get_month_ahead_tables(month_ahead,config:ConfigurationOptions):
     '''
     loads relevant data from the month-ahead forecasts workbook into dataframes
-    parameters:
-        month_ahead - month-ahead workbook
+        parameters:
+            month_ahead - month-ahead workbook
+        returns:
+            [month_ahead_forecasts,monthly_tracking] - list of extracted
+                dataframes
     '''
     columns = [
         'organization_id',
@@ -631,13 +644,64 @@ def get_month_ahead_tables(month_ahead,config:ConfigurationOptions):
     month_ahead_forecasts['organization_id'] = month_ahead_forecasts.loc[:,'organization_id'].map(lambda s: s.replace('Total','').strip() if isinstance(s,str) else s)
     month_ahead_forecasts.set_index(['organization_id','month'],inplace=True)
     month_ahead_forecasts.sort_index(inplace=True)
-    return (month_ahead_forecasts)
+
+    # monthly tracking table
+    columns = [
+        'organization_id',
+        'lse_type',
+        'jurisdiction',
+        'lse_lu',
+        'month',
+        'id_and_date',
+        'sce_year_ahead_forecast',
+        'sdge_year_ahead_forecast',
+        'pge_year_ahead_forecast',
+        'total_year_ahead_forecast',
+        'sce_esps_migrating_load',
+        'sce_cca_migrating_load',
+        'sdge_esps_migrating_load',
+        'sdge_cca_migrating_load',
+        'pge_esps_migrating_load',
+        'pge_cca_migrating_load',
+        'sce_load_migration_adjustment',
+        'sdge_load_migration_adjustment',
+        'pge_load_migration_adjustment',
+        'total_load_migration_adjustment',
+        'sce_revised_monthly_forecast',
+        'sdge_revised_monthly_forecast',
+        'pge_revised_monthly_forecast',
+        'total_revised_monthly_forecast',
+        'sce_revised_noncoincident_monthly_forecast',
+        'sdge_revised_noncoincident_monthly_forecast',
+        'pge_revised_noncoincident_monthly_forecast',
+        'total_revised_noncoincident_monthly_forecast',
+        'sce_revised_nonjurisdictional_load_share',
+        'sdge_revised_nonjurisdictional_load_share',
+        'pge_revised_nonjurisdictional_load_share',
+        'total_revised_nonjurisdictional_load_share',
+        'sce_revised_jurisdictional_load_share',
+        'sdge_revised_jurisdictional_load_share',
+        'pge_revised_jurisdictional_load_share',
+        'total_revised_jurisdictional_load_share',
+    ]
+    data_range = month_ahead['Monthly Tracking']['B5:AL{}'.format(month_ahead['Monthly Tracking'].max_row)]
+    monthly_tracking = data_range_to_dataframe(columns,data_range)
+    monthly_tracking.drop('blank',axis='columns',inplace=True)
+    monthly_tracking.dropna(subset=['organization_id','month'],inplace=True)
+    monthly_tracking['organization_id'] = monthly_tracking.loc[:,'organization_id'].map(lambda s: s.replace('Total','').strip() if isinstance(s,str) else s)
+    monthly_tracking.set_index(['organization_id','month'],inplace=True)
+    monthly_tracking.sort_index(inplace=True)
+
+    return (month_ahead_forecasts,monthly_tracking)
 
 def get_cam_rmr_tables(cam_rmr):
     '''
     loads relevant data from the cam-rmr workbook into dataframes
-    parameters:
-        cam_rmr - cam-rmr workbook
+        parameters:
+            cam_rmr - cam-rmr workbook
+        returns:
+            (cam_rmr_monthly_tracking,total_cam_rmr) - tuple of extracted
+                dataframes
     '''
     columns = [
         'organization_id',
@@ -806,29 +870,124 @@ def get_cross_check_tables(caiso_cross_check,config:ConfigurationOptions):
 
     return (system,flexibility)
 
-def get_nqc_list(ra_summary,config:ConfigurationOptions):
+def get_nqc_list(nqc_workbook,config:ConfigurationOptions):
     '''
-    retrieves the monthly generation capacities from a given resource adequacy summary sheet
+    retrieves the monthly generation capacities from a given nqc workbook
+
     parameters:
-        ra_summary - a workbook containing the monthly resource adequacy summary data
+        nqc_workbook - a workbook containing a valid nqc list
         config - an instance of the ConfigurationOptions class
     '''
     filing_month = config.filing_month
+    current_nqc_worksheet_name = f'{filing_month.year} NQC List'
     month_columns = [ts(filing_month.year,month,1).to_numpy().astype('datetime64[M]') for month in range(1,13)]
-    columns = [
-        'generator_name',
-        'resource_id',
-        'zone',
-        'local_area',
-    ] + month_columns + [
-        'dispatchable',
-        'deliverability_status',
-        'deliverable',
-        'comments',
-    ]
-    data_range = ra_summary['NQC_List']['A2:T{}'.format(ra_summary['NQC_List'].max_row)]
-    nqc_list = data_range_to_dataframe(columns,data_range)
+    column_map = {
+        'Generator Name' : 'generator_name',
+        'Resource ID': 'resource_id',
+        'Path Designation' : 'zone',
+        'Local Area' : 'local_area',
+        'Dispatchable' : 'dispatchable',
+        'Deliverability Status' : 'deliverability_status',
+        'Deliverability MW' : 'deliverable',
+        'Comments' : 'comments',
+    }
+    for month in month_columns:
+        month_abbreviation = ts(month).strftime('%b').upper()
+        column_map[month_abbreviation] = month
+    if current_nqc_worksheet_name in [ws.title for ws in nqc_workbook.worksheets]:
+        last_column = get_column_letter(20)
+        last_row = nqc_workbook[current_nqc_worksheet_name].max_row
+        original_columns = nqc_workbook[current_nqc_worksheet_name][f'A1:{last_column}1'][0]
+        mapped_columns = [column_map[cell.value] for cell in original_columns]
+        month_columns = [ts(filing_month.year,month,1).to_numpy().astype('datetime64[M]') for month in range(1,13)]
+        data_range = nqc_workbook[current_nqc_worksheet_name][f'A2:{last_column}{last_row}']
+        nqc_list = data_range_to_dataframe(mapped_columns, data_range)
+
+        # identify rows with duplicate resource ids:
+        nqc_list.loc[:,'count'] = 1
+        nqc_list = nqc_list.drop(columns='count').merge(
+            right=nqc_list.loc[:,['resource_id','count']].groupby('resource_id').count(),
+            how='left',
+            on='resource_id'
+        )
+
+        # identify rows with empty data:
+        nqc_list.loc[:,'empty'] = reduce(
+            lambda s,c: c & s,
+            [pd.isna(nqc_list.loc[:,s]) for s in month_columns]
+        )
+
+        # remove rows with duplicate resource ids and empty data:
+        nqc_list = nqc_list.loc[~(
+            (nqc_list.loc[:,'count']>1) &
+            (nqc_list.loc[:,'empty'])
+        ),:].drop(columns=['count','empty'])
+
+        # sort table and use only the first rows:
+        nqc_list = nqc_list.sort_values(['resource_id']+month_columns)
+        nqc_list.groupby('resource_id').first()
+    else:
+        columns = [
+            'generator_name',
+            'resource_id',
+            'zone',
+            'local_area'
+        ] + month_columns + [
+            'dispatchable',
+            'deliverability_status',
+            'deliverable',
+            'comments',
+        ]
+        nqc_list = pd.DataFrame(columns=columns)
     return nqc_list
+
+def refresh_nqc_list_from_file(nqc,ra_summary,config:ConfigurationOptions):
+    '''
+    extracts updated generation capacities from an nqc file and replaces the
+    data in the nqc list worksheet of the resource adequacy summary sheet.
+    parameters:
+        nqc - a workbook containing updated nqc values
+        ra_summary - a workbook containing the monthly resource adequacy summary
+            data
+        config - an instance of the ConfigurationOptions class
+    '''
+    filing_month = config.filing_month
+    current_nqc_worksheet_name = f'{filing_month.year} NQC List'
+    if current_nqc_worksheet_name in [ws.title for ws in nqc.worksheets]:
+        last_column = get_column_letter(nqc[current_nqc_worksheet_name].max_column)
+        last_row = nqc[current_nqc_worksheet_name].max_row
+        columns = nqc[current_nqc_worksheet_name][f'A1:{last_column}1']
+        data_range = nqc[current_nqc_worksheet_name][f'A2:{last_column}{last_row}']
+        current_nqc_list = data_range_to_dataframe(columns, data_range)
+
+        # clear nqc list in summary workbook:
+        last_row = ra_summary['NQC_List'].max_row
+        ra_summary['NQC_List'].delete_rows(2,max(2,last_row-1))
+
+        # input new nqc list in summary workbook:
+        row_number = 2
+        for _,s in current_nqc_list.iterrows():
+            ra_summary['NQC_List'][f'A{row_number}'].value = s.loc['Generator Name']
+            ra_summary['NQC_List'][f'B{row_number}'].value = s.loc['Resource ID']
+            ra_summary['NQC_List'][f'C{row_number}'].value = s.loc['Path 26 Region']
+            ra_summary['NQC_List'][f'D{row_number}'].value = s.loc['Local Area']
+            ra_summary['NQC_List'][f'E{row_number}'].value = s.loc['JAN']
+            ra_summary['NQC_List'][f'F{row_number}'].value = s.loc['FEB']
+            ra_summary['NQC_List'][f'G{row_number}'].value = s.loc['MAR']
+            ra_summary['NQC_List'][f'H{row_number}'].value = s.loc['APR']
+            ra_summary['NQC_List'][f'I{row_number}'].value = s.loc['MAY']
+            ra_summary['NQC_List'][f'J{row_number}'].value = s.loc['JUN']
+            ra_summary['NQC_List'][f'K{row_number}'].value = s.loc['JUL']
+            ra_summary['NQC_List'][f'L{row_number}'].value = s.loc['AUG']
+            ra_summary['NQC_List'][f'M{row_number}'].value = s.loc['SEP']
+            ra_summary['NQC_List'][f'N{row_number}'].value = s.loc['OCT']
+            ra_summary['NQC_List'][f'O{row_number}'].value = s.loc['NOV']
+            ra_summary['NQC_List'][f'P{row_number}'].value = s.loc['DEC']
+            ra_summary['NQC_List'][f'Q{row_number}'].value = s.loc['Dispatchable']
+            ra_summary['NQC_List'][f'R{row_number}'].value = s.loc['Deliverability Status']
+            ra_summary['NQC_List'][f'S{row_number}'].value = s.loc['Deliverable MW']
+            ra_summary['NQC_List'][f'T{row_number}'].value = s.loc['Comments']
+            row_number+=1
 
 def read_supply_plan(config:ConfigurationOptions,supply_plan_type:str,date:ts=None,version:int=None):
     '''
@@ -931,24 +1090,24 @@ def parse_date(date_string):
             if int(month_string)<1:
                 month_string = '1'
             elif int(month_string)>12:
-                month_string = 12
+                month_string = '12'
             next_month = int(month_string)%12+1
             next_year = int(year_string) + int(int(month_string)/12)
-            last_day_of_month = (ts('{}/1/{}'.format(next_month,next_year)) - td(days=1)).day
+            last_day_of_month = (ts(next_year,next_month,1) - td(days=1)).day
             if int(day_string)<1:
                 day_string = '1'
             elif int(day_string)>last_day_of_month:
                 day_string = str(last_day_of_month)
             else:
                 pass
-            date = ts('{}/{}/{}'.format(month_string,day_string,year_string))
+            date = ts(int(year_string),int(month_string),int(day_string))
         else:
             try:
                 date = ts(date_string)
             except:
                 date = ts('NaT')
     elif isinstance(date_string,time):
-        date = ts('1900-01-01')
+        date = ts(1900,1,1)
     else:
         date = ts('NaT')
     return date

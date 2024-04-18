@@ -6,8 +6,8 @@ from ra_filings import ra_filings
 #changed line 19 to point to ra_filings_config_2023.yaml
 
 if __name__=='__main__':
-    for m in [7]:
-        filing_month = ts('2023-{:02d}-01'.format(m))
+    for m in [1]:
+        filing_month = ts(2024,m,1)
         download = False
         organize = True
         consolidate = True
@@ -16,7 +16,7 @@ if __name__=='__main__':
 
         if any([download,organize,consolidate,notify,export]):
             ra_filings(
-                configuration_options_path=Path(r'\\Sf150pyclfs26\PYCLIENTFS\Users\svc_energyRA\ra_filings\config\ra_filings_config_2023.yaml'),
+                configuration_options_path=Path(r'\\Sf150pyclfs26\PYCLIENTFS\Users\svc_energyRA\ra_filings_development\ra_filings\config\ra_filings_config.yaml'),
                 download=download,
                 organize=organize,
                 consolidate=consolidate,

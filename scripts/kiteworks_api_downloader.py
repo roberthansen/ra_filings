@@ -80,7 +80,13 @@ class AttachmentDownloader:
         internal_address_check = re.compile(r'\S*@cpuc\.ca\.gov$')
         file_type_check = re.compile(r'.*\.(xlsx|xls)$')
         log_str = 'Searching for Emails from {} to {}'
-        self.logger.log(log_str.format(start_date.strftime('%Y-%m-%d'),end_date.strftime('%Y-%m-%d')),'INFORMATION')
+        self.logger.log(
+            log_str.format(
+                start_date.strftime('%Y-%m-%d'),
+                end_date.strftime('%Y-%m-%d')
+            ),
+            'INFORMATION'
+        )
         for email in email_list:
             email_id = email['id']
             email_date = ts(email['date']).tz_convert(None)
@@ -119,11 +125,27 @@ class AttachmentDownloader:
                             download_path = self.config.paths.get_path('downloads_external') / attachment['name']
                         if attachment['name'] not in attachment_names:
                             log_str = 'Downloading Attachment \'{}\' --- Date: {}; Subject: {}; Sender: {}'
-                            self.logger.log(log_str.format(attachment['name'],email_date.strftime('%Y-%m-%d'),email_subject,email_sender),'INFORMATION')
+                            self.logger.log(
+                                log_str.format(
+                                    attachment['name'],
+                                    email_date.strftime('%Y-%m-%d'),
+                                    email_subject,
+                                    email_sender
+                                ),
+                                'INFORMATION'
+                            )
                             self.connection.download_attachment(email_id,attachment['attachmentId'],download_path)
                         else:
                             log_str = 'Skipping Attachment - Already Downloaded \'{}\' --- Date: {}; Subject: {}; Sender: {}'
-                            self.logger.log(log_str.format(attachment['name'],email_date.strftime('%Y-%m-%d'),email_subject,email_sender),'INFORMATION')
+                            self.logger.log(
+                                log_str.format(
+                                    attachment['name'],
+                                    email_date.strftime('%Y-%m-%d'),
+                                    email_subject,
+                                    email_sender
+                                ),
+                                'INFORMATION'
+                            )
                         attachment_information = pd.Series({
                             'email_id' : email_id,
                             'attachment_id' : attachment['attachmentId'],
@@ -136,7 +158,15 @@ class AttachmentDownloader:
                         self.attachment_logger.log(attachment_information)
                     else:
                         log_str = 'Skipping Attachment - Already Downloaded \'{}\' --- Date: {}; Subject: {}; Sender: {}'
-                        self.logger.log(log_str.format(attachment['name'],email_date.strftime('%Y-%m-%d'),email_subject,email_sender),'INFORMATION')
+                        self.logger.log(
+                            log_str.format(
+                                attachment['name'],
+                                email_date.strftime('%Y-%m-%d'),
+                                email_subject,
+                                email_sender
+                            ),
+                            'INFORMATION'
+                        )
                 self.attachment_logger.commit()
             self.email_logger.commit()
 
@@ -202,7 +232,10 @@ class AttachmentDownloader:
                 'to' : [source_email_sender],
                 'cc' : ccs,
                 'bcc' : ['rh2@cpuc.ca.gov'],
-                'subject' : 'Invalid RA Monthly Filing: {} - {}'.format(organization_id,filing_month.strftime('%B, %Y')),
+                'subject' : 'Invalid RA Monthly Filing: {} - {}'.format(
+                    organization_id,
+                    filing_month.strftime('%B, %Y')
+                ),
                 'body' : message_body.format(
                     filing_month.strftime('%B, %Y'),
                     download_path.name,
@@ -246,7 +279,10 @@ class AttachmentDownloader:
                 'to' : [source_email_sender],
                 'cc' : ccs,
                 'bcc' : ['rh2@cpuc.ca.gov'],
-                'subject' : 'Missing RA Monthly Filing: {}\'s Filing for {}'.format(organization['id'],filing_month.strftime('%B, %Y')),
+                'subject' : 'Missing RA Monthly Filing: {}\'s Filing for {}'.format(
+                    organization['id'],
+                    filing_month.strftime('%B, %Y')
+                ),
                 'body' : message_body.format(
                     filing_month.strftime('%B, %Y'),
                     organization['name'],
@@ -265,7 +301,12 @@ class AttachmentDownloader:
         message['to'] = ['rafiling@cpuc.ca.gov']
         message['cc'] = ['rafiling@cpuc.ca.gov']
         # --- end overwrite ---
-        self.logger.log('Sending invalid filing notification to {}'.format(organization['id']),'INFORMATION')
+        self.logger.log(
+            'Sending invalid filing notification to {}'.format(
+                organization['id']
+            ),
+            'INFORMATION'
+        )
         self.connection.send_message(message,download_paths)
 
     def send_noncompliant_filing_notification(self,consolidation_log_entry:pd.Series):
@@ -319,7 +360,10 @@ class AttachmentDownloader:
             'to' : [source_email_sender],
             'cc' : ccs,
             'bcc' : ['rh2@cpuc.ca.gov'],
-            'subject' : 'Noncompliant RA Monthly Filing: {} - {}'.format(organization_id,filing_month.strftime('%b %Y')),
+            'subject' : 'Noncompliant RA Monthly Filing: {} - {}'.format(
+                organization_id,
+                filing_month.strftime('%b %Y')
+            ),
             'body' : message_body.format(
                 filing_month.strftime('%b, %Y'),
                 download_path.name,
@@ -344,7 +388,12 @@ class AttachmentDownloader:
         message['to'] = ['rafiling@cpuc.ca.gov']
         message['cc'] = []
         # --- end overwrite ---
-        self.logger.log('Sending noncompliant filing notification to {}'.format(organization['id']),'INFORMATION')
+        self.logger.log(
+            'Sending noncompliant filing notification to {}'.format(
+                organization['id']
+            ),
+            'INFORMATION'
+        )
         self.connection.send_message(message,[download_path])
 
     def send_results(self,completed:bool):
@@ -369,7 +418,10 @@ class AttachmentDownloader:
                 's' if len(late_filings)>1 else '',
                 filing_month.strftime('%B, %Y'),
                 self.config.get_filing_due_date().strftime('%B %d, %Y'),
-                ''.join(['<li>{} ({})</li>'.format(self.config.organizations.get_name(late_filing.loc['organization_id']),late_filing.loc['organization_id']) for _,late_filing in late_filings.iterrows()])
+                ''.join(['<li>{} ({})</li>'.format(
+                    self.config.organizations.get_name(late_filing.loc['organization_id']),
+                    late_filing.loc['organization_id']
+                ) for _,late_filing in late_filings.iterrows()])
             )
         else:
             late_filings_str = ''
@@ -397,7 +449,10 @@ class AttachmentDownloader:
                 'ies are' if len(invalid_filings)>1 else ' is',
                 'they' if len(invalid_filings)>1 else 'it',
                 'were' if len(invalid_filings)>1 else 'was',
-                ''.join(['<li>{} ({})</li>'.format(self.config.organizations.get_name(r.loc['organization_id']),r.loc['organization_id']) for _,r in invalid_filings.iterrows()]),
+                ''.join(['<li>{} ({})</li>'.format(
+                    self.config.organizations.get_name(r.loc['organization_id']),
+                    r.loc['organization_id']
+                ) for _,r in invalid_filings.iterrows()]),
                 's' if len(invalid_filings)>1 else '',
                 '' if len(invalid_filings)>1 else ' a',
                 's' if len(invalid_filings)>1 else '',
@@ -425,7 +480,10 @@ class AttachmentDownloader:
                 ''').strip().format(
                     'ies are' if len(noncompliant_filings)>1 else 'y is',
                     's are' if len(noncompliant_filings)>1 else ' is',
-                    ''.join(['<li>{} ({})</li>'.format(self.config.organizations.get_name(r.loc['organization_id']),r.loc['organization_id']) for _,r in noncompliant_filings.iterrows()]),
+                    ''.join(['<li>{} ({})</li>'.format(
+                        self.config.organizations.get_name(r.loc['organization_id']),
+                        r.loc['organization_id']
+                    ) for _,r in noncompliant_filings.iterrows()]),
                     's' if len(noncompliant_filings)>1 else '',
                     filing_month.strftime('%B, %Y')
                 )
@@ -435,7 +493,9 @@ class AttachmentDownloader:
                 'to' : [self.config.organizations.get_organization('CPUC')['default_email']],
                 'cc' : [],
                 'bcc' : ['rh2@cpuc.ca.gov'],
-                'subject' : 'Resource Adequacy Filing Results for {}'.format(filing_month.strftime('%B, %Y')),
+                'subject' : 'Resource Adequacy Filing Results for {}'.format(
+                    filing_month.strftime('%B, %Y')
+                ),
                 'body' : re.sub('\s+',' ','''
                     <p>Hello Resource Adequacy Team,</p>
                     <p><br></p>
@@ -448,7 +508,12 @@ class AttachmentDownloader:
                     <p><br></p>
                     <p>This message was generated automatically by the RA
                     Monthly Filing Compliance Tool.</p>
-                ''').strip().format(filing_month.strftime('%B, %Y'),late_filings_str,invalid_filings_str,noncompliant_filings_str),
+                ''').strip().format(
+                    filing_month.strftime('%B, %Y'),
+                    late_filings_str,
+                    invalid_filings_str,
+                    noncompliant_filings_str
+                ),
                 'acl' : 'verify_recipient',
                 'draft' : 0,
                 'includeFingerprint' : 0,
@@ -457,7 +522,10 @@ class AttachmentDownloader:
                 'returnReceipts' : [],
                 'selfCopy' : 0,
             }
-            self.logger.log('Sending Complete Results to {}'.format(self.config.organizations.get_organization('CPUC')['default_email']),'INFORMATION')
+            self.logger.log('Sending Complete Results to {}'.format(
+                self.config.organizations.get_organization('CPUC')['default_email']),
+                'INFORMATION'
+            )
         else:
             missing_allocations = self.consolidation_logger.data.loc[
                 (self.consolidation_logger.data.loc[:,'ra_category']!='ra_monthly_filing') & \
@@ -476,7 +544,9 @@ class AttachmentDownloader:
                 'to' : [self.config.organizations.get_organization('CPUC')['default_email']],
                 'cc' : [],
                 'bcc' : ['rh2@cpuc.ca.gov'],
-                'subject' : 'Unable to Generate Resource Adequacy Filing Summary Results for {}'.format(filing_month.strftime('%B, %Y')),
+                'subject' : 'Unable to Generate Resource Adequacy Filing Summary Results for {}'.format(
+                    filing_month.strftime('%B, %Y')
+                ),
                 'body' : re.sub('\s+',' ','''
                     <p>Hello Resource Adequacy Team,</p>
                     <p><br></p>
@@ -506,7 +576,10 @@ class AttachmentDownloader:
                 'returnReceipts' : [],
                 'selfCopy' : 0,
             }
-            self.logger.log('Sending Partial Results to {}'.format(self.config.organizations.get_organization('CPUC')['default_email']),'INFORMATION')
+            self.logger.log('Sending Partial Results to {}'.format(
+                self.config.organizations.get_organization('CPUC')['default_email']),
+                'INFORMATION'
+            )
         paths = [self.config.paths.get_path('results_archive')]
         self.connection.send_message(message,paths)
         return message
