@@ -30,9 +30,8 @@ def open_workbook(path:Path,data_only:bool=True,read_only:bool=True,in_mem:bool=
     '''
     if path is not None:
         if path.is_file() and re.match(r'^.*\.xlsx$',path.name):
-            with warnings.catch_warnings():
-                warnings.simplefilter(action='ignore')
-                # warnings.filterwarnings(action='ignore',message='.*?(header|Validation).*')
+            with warnings.catch_warnings() as w:
+                warnings.filterwarnings(action='ignore')
                 if in_mem:
                     with path.open('rb') as f:
                         in_mem_file = io.BytesIO(f.read())
@@ -107,7 +106,9 @@ def get_table(worksheet,table_header_text:str,table_header_offset:dict,columns:l
         worksheet - an excel worksheet expected to contain the table header
         table_header_text - a string which, if found identically within the
             worksheet, will be used as the reference coordinates for the table
-        table_header_offset - 
+        table_header_offset - a dictionary containing coordinates for top left
+            corner of range to extract relative to the cell containing
+            table_header_text in the form {'rows':___,'columns':___}
         columns - a list which will be used as the column labels in the
             resulting dataframe
     '''
@@ -120,7 +121,7 @@ def get_table(worksheet,table_header_text:str,table_header_offset:dict,columns:l
     for row_index,row in enumerate(worksheet.rows):
         if row_index+1<table_bounds['bottom']:
             for column_index,cell in enumerate(row):
-                if str(cell.value).lower()==table_header_text.lower():
+                if table_header_text.lower() in str(cell.value).lower():
                     # found header, setting upper, left, and right boundaries of table (row and column indices are excel label-1):
                     table_bounds['top'] = row_index + 1 + table_header_offset['rows']
                     table_bounds['left'] = get_column_letter(column_index + table_header_offset['columns'] + 1)
@@ -151,7 +152,10 @@ def read_ra_monthly_filing(organization:dict,config:ConfigurationOptions,logger:
             entity and month will be used
     '''
     path = config.paths.get_path('ra_monthly_filing',organization=organization,date=date,version=version)
-    ra_monthly_filing = open_workbook(path,data_only=True,read_only=True,in_mem=False)
+    try:
+        ra_monthly_filing = open_workbook(path,data_only=True,read_only=True,in_mem=False)
+    except UserWarning:
+        pass
     physical_resources_columns=[
         'organization_id',
         'contract_id',
@@ -268,7 +272,7 @@ def read_ra_monthly_filing(organization:dict,config:ConfigurationOptions,logger:
             # retrieve physical resources table:
             last_row = ra_monthly_filing['I_Phys_Res_Import_RA_Res'].max_row
             if last_row > 5:
-                physical_resources = data_range_to_dataframe(physical_resources_columns,ra_monthly_filing[f'I_Phys_Res_Import_RA_Res']['A5:N{last_row}'])
+                physical_resources = data_range_to_dataframe(physical_resources_columns,ra_monthly_filing[f'I_Phys_Res_Import_RA_Res'][f'A5:N{last_row}'])
                 physical_resources.loc[:,'contract_id'] = physical_resources.loc[:,'contract_id'].map(lambda x: None if pd.isnull(x) or str(x).strip()=='' else x)
                 physical_resources.loc[:,'resource_id'] = physical_resources.loc[:,'resource_id'].map(lambda x: None if pd.isnull(x) or str(x).strip()=='' else x)
                 physical_resources.loc[:,'start_date'] = physical_resources.loc[:,'start_date'].map(parse_date)
@@ -291,7 +295,7 @@ def read_ra_monthly_filing(organization:dict,config:ConfigurationOptions,logger:
             # retrieve demand response table:
             last_row = ra_monthly_filing['III_Demand_Response'].max_row
             if last_row > 17:
-                demand_response = data_range_to_dataframe(demand_response_columns,ra_monthly_filing[f'III_Demand_Response']['A17:N{last_row}'])
+                demand_response = data_range_to_dataframe(demand_response_columns,ra_monthly_filing[f'III_Demand_Response'][f'A17:N{last_row}'])
                 demand_response.loc[:,'contract_id'] = demand_response.loc[:,'contract_id'].map(lambda x: None if pd.isnull(x) or str(x).strip()=='' else x)
                 demand_response.loc[:,'program_id'] = demand_response.loc[:,'program_id'].map(lambda x: None if pd.isnull(x) or str(x).strip()=='' else x)
                 demand_response.loc[:,'start_date'] = demand_response.loc[:,'start_date'].map(parse_date)
@@ -432,7 +436,7 @@ def get_year_ahead_tables(year_ahead,config:ConfigurationOptions):
 
     # flex-cme (new table for 2023):
     columns = ['organization_id'] + month_columns
-    if filing_month>ts(2022,12,31):
+    if filing_month.year>2022:
         data_range = get_data_range(year_ahead['CPE Flexible'],'A','BCDEFGHIJKLM',config)
         flexibility_cme = data_range_to_dataframe(columns,data_range)
         flexibility_cme = flexibility_cme.melt(id_vars=['organization_id'],var_name='month',value_name='flexibility_cme')
@@ -442,6 +446,24 @@ def get_year_ahead_tables(year_ahead,config:ConfigurationOptions):
             'organization_id':[lse_id_x for lse_id in lse_ids for lse_id_x in [lse_id]*12],'month':month_columns*len(lse_ids),'flexibility_cme':[0]*12*len(lse_ids)})
     flexibility_cme.set_index(['organization_id','month'],inplace=True)
     flexibility_cme.sort_index(inplace=True)
+
+    # flex-irp (new table for 2024):
+    columns = ['id'] + month_columns
+    if filing_month.year>2023:
+        flexibility_irp = get_table(year_ahead['IRP Flexible'],'Jan. EFC',{'rows':1,'columns':-1},columns)
+    else:
+        ids = [lse['id']+str(x) for lse in config.organizations.list_load_serving_entities() for x in range(1,4)]
+        flexibility_irp = pd.DataFrame({
+            **{'id':ids},
+            **{month:[0]*len(ids) for month in month_columns}
+        })
+    flexibility_irp = flexibility_irp.melt(id_vars=['id'],var_name='month',value_name='flexibility_irp')
+    id_re = re.compile(r'^(\w+)(\d)$')
+    flexibility_irp.loc[:,'organization_id'] = flexibility_irp.loc[:,'id'].map(lambda s: id_re.match(s).groups()[0])
+    flexibility_irp.loc[:,'flex_category'] = flexibility_irp.loc[:,'id'].map(lambda s: int(id_re.match(s).groups()[1]))
+    flexibility_irp = flexibility_irp.loc[:,['organization_id','flex_category','month','flexibility_irp']]
+    flexibility_irp.set_index(['organization_id','flex_category','month'],inplace=True)
+    flexibility_irp.sort_index(inplace=True)
 
     # local cam:
     columns = [
@@ -499,28 +521,28 @@ def get_year_ahead_tables(year_ahead,config:ConfigurationOptions):
     # irp system:
     columns = ['id'] + month_columns
     id_re = re.compile(r'^(.+)([NS]P26)\s*IRP$')
-    irp_system = get_table(year_ahead['IRP System'],'Jan. System NQC',{'rows':1,'columns':-1})
-    irp_system.loc[:,'lse'] = irp_system.loc[:,'id'].map(lambda s: id_re.match(s).groups[0])
-    irp_system.loc[(irp_system.loc[:,'id'].map(lambda s: id_re.match(s).groups[1])=='NP26'),'path_26_region'] = 'north'
-    irp_system.loc[(irp_system.loc[:,'id'].map(lambda s: id_re.match(s).groups[1])=='SP26'),'path_26_region'] = 'south'
-    irp_system.loc = irp_system.loc[:,['lse','path-26_region']+month_columns]
+    irp_system = get_table(year_ahead['IRP System'],'Jan. System NQC',{'rows':1,'columns':-1},columns)
+    irp_system.loc[:,'lse'] = irp_system.loc[:,'id'].map(lambda s: id_re.match(s).groups()[0])
+    irp_system.loc[(irp_system.loc[:,'id'].map(lambda s: id_re.match(s).groups()[1])=='NP26'),'path_26_region'] = 'north'
+    irp_system.loc[(irp_system.loc[:,'id'].map(lambda s: id_re.match(s).groups()[1])=='SP26'),'path_26_region'] = 'south'
+    irp_system = irp_system.loc[:,['lse','path_26_region']+month_columns]
+    irp_system = irp_system.set_index(['lse','path_26_region']).sort_index()
 
     # year-ahead cam/rmr allocation:
     columns = ['id'] + month_columns
     if filing_month.year>=2024:
-        id_re = re.compile(r'^(.+)([NS]P26)\s*(CAM|RMR)$')
-        cam_rmr = get_table(year_ahead['Local RA-CAM-{}'.format(filing_month.year)],'YA CAM Allocatons (this flows into LSE table 8)',{'rows':13,'columns':-1})
-        cam_rmr.loc[:,'lse'] = cam_rmr.loc[:,'id'].map(lambda s: id_re.match(s).groups[0])
-        cam_rmr.loc[(cam_rmr.loc[:,'id'].map(lambda s: id_re.match(s).groups[1])=='NP26'),'path_26_region'] = 'north'
-        cam_rmr.loc[(cam_rmr.loc[:,'id'].map(lambda s: id_re.match(s).groups[1])=='SP26'),'path_26_region'] = 'south'
-        cam_rmr.loc[(cam_rmr.loc[:,'id'].map(lambda s: id_re.match(s).groups[1])=='System'),'path_26_region'] = 'system'
-        cam_rmr.loc[:,'type'] = cam_rmr.loc[:,'id'].map(lambda s: id_re.match(s).groups[2].lower())
+        id_re = re.compile(r'^(.+)([NS]P26|System)\s*(CAM|RMR)$')
+        cam_rmr = get_table(year_ahead['Local RA-CAM-{}'.format(filing_month.year)],'YA CAM Allocatons (this flows into LSE table 8)',{'rows':13,'columns':-1},columns)
+        cam_rmr.loc[:,'lse'] = cam_rmr.loc[:,'id'].map(lambda s: id_re.match(s).groups()[0] if id_re.match(s) else None)
+        cam_rmr.loc[(cam_rmr.loc[:,'id'].map(lambda s: id_re.match(s).groups()[1])=='NP26'),'path_26_region'] = 'north'
+        cam_rmr.loc[(cam_rmr.loc[:,'id'].map(lambda s: id_re.match(s).groups()[1])=='SP26'),'path_26_region'] = 'south'
+        cam_rmr.loc[(cam_rmr.loc[:,'id'].map(lambda s: id_re.match(s).groups()[1])=='System'),'path_26_region'] = 'system'
+        cam_rmr.loc[:,'type'] = cam_rmr.loc[:,'id'].map(lambda s: id_re.match(s).groups()[2].lower())
     else:
-        cam_rmr = pd.DataFrame(columns=columns)
-    cam_rmr.set_index(['lse','path_26_region','type'])
-    cam_rmr.sort_index(inplace=True)
+        cam_rmr = pd.DataFrame(columns=['lse','path_26_region','type']+columns)
+    cam_rmr = cam_rmr.drop(columns=['id']).set_index(['lse','path_26_region','type']).sort_index()
 
-    return (load_forecast_input_data,demand_response_allocation,cam_credits,flexibility_requirements,flexibility_rmr,flexibility_cme,local_rar,total_lcr,cam_system,irp_system,cam_rmr)
+    return (load_forecast_input_data,demand_response_allocation,cam_credits,flexibility_requirements,flexibility_rmr,flexibility_cme,flexibility_irp,local_rar,total_lcr,cam_system,irp_system,cam_rmr)
 
 def get_incremental_local_tables(incremental_local,config:ConfigurationOptions):
     '''
@@ -587,7 +609,51 @@ def get_incremental_local_tables(incremental_local,config:ConfigurationOptions):
     local_rar_trueup.fillna({'local_rar_trueup':0},inplace=True)
     local_rar_trueup.set_index(['organization_id','location'],inplace=True)
     local_rar_trueup.sort_index(inplace=True)
+
+
     return (incremental_flex,incremental_local_load,local_rar_trueup)
+
+def get_cam_rmr_update_tables(cam_rmr_update,config:ConfigurationOptions):
+    '''
+    loads CAM, RMR, and Diablo Canyon credits from the mid-year credit true-up
+    file into dataframes
+
+    parameters:
+        cam_rmr_update - mid-year credit true-up workbook
+        config - an instance of the ConfigurationOptions class used for
+            retrieving containing information about each load-serving entity
+    '''
+    n_organizations = len(config.organizations.list_load_serving_entities())
+    month_columns = [ts(config.filing_month.year,month,1).to_numpy().astype('datetime64[M]') for month in range(1,13)]
+
+    n_rows = n_organizations * 5
+    data_range = cam_rmr_update['Jun to Dec CAM Update']['B14:N{}'.format(13+n_rows)]
+    columns = ['row_id'] + month_columns
+    id_parser = re.compile(r'(\w+)\s*(NP26|SP26|System)\s*(CAM|RMR)')
+    cam_rmr_trueup = data_range_to_dataframe(columns,data_range)
+    cam_rmr_trueup.loc[:,'row_id'] = cam_rmr_trueup.loc[:,'row_id'].fillna('')
+    cam_rmr_trueup = cam_rmr_trueup.loc[(cam_rmr_trueup.loc[:,'row_id'].map(lambda s: id_parser.match(s) is not None)),:]
+    columns = ['organization_id','path_26_region','type']
+    cam_rmr_trueup = cam_rmr_trueup.join(
+        cam_rmr_trueup.apply(
+            lambda r: {k:v for k,v in zip(columns,id_parser.match(r.loc['row_id']).groups())},
+            axis='columns',
+            result_type='expand'
+        )
+    )
+    cam_rmr_trueup = cam_rmr_trueup.fillna(0)
+    cam_rmr_trueup.loc[:,'path_26_region'] = cam_rmr_trueup.loc[:,'path_26_region'].map(lambda s: 'north' if s=='NP26' else 'south' if s=='SP26' else 'system')
+    cam_rmr_trueup.loc[:,'type'] = cam_rmr_trueup.loc[:,'type'].map(lambda s: s.lower())
+    cam_rmr_trueup.set_index(['organization_id','path_26_region','type'],inplace=True)
+
+    data_range = cam_rmr_update['Diablo Canyon Credits']['B7:N{}'.format(6+n_organizations)]
+    columns = ['organization_id'] + month_columns
+    diablo_canyon_credits = data_range_to_dataframe(columns,data_range)
+    diablo_canyon_credits = diablo_canyon_credits.dropna(axis='index',how='any',subset=['organization_id'])
+    diablo_canyon_credits = diablo_canyon_credits.fillna(0)
+    diablo_canyon_credits.set_index('organization_id',inplace=True)
+
+    return (cam_rmr_trueup,diablo_canyon_credits)
 
 def get_month_ahead_tables(month_ahead,config:ConfigurationOptions):
     '''
@@ -684,9 +750,8 @@ def get_month_ahead_tables(month_ahead,config:ConfigurationOptions):
         'pge_revised_jurisdictional_load_share',
         'total_revised_jurisdictional_load_share',
     ]
-    data_range = month_ahead['Monthly Tracking']['B5:AL{}'.format(month_ahead['Monthly Tracking'].max_row)]
+    data_range = month_ahead['Monthly Tracking']['B5:AK{}'.format(month_ahead['Monthly Tracking'].max_row)]
     monthly_tracking = data_range_to_dataframe(columns,data_range)
-    monthly_tracking.drop('blank',axis='columns',inplace=True)
     monthly_tracking.dropna(subset=['organization_id','month'],inplace=True)
     monthly_tracking['organization_id'] = monthly_tracking.loc[:,'organization_id'].map(lambda s: s.replace('Total','').strip() if isinstance(s,str) else s)
     monthly_tracking.set_index(['organization_id','month'],inplace=True)
@@ -879,7 +944,7 @@ def get_nqc_list(nqc_workbook,config:ConfigurationOptions):
         config - an instance of the ConfigurationOptions class
     '''
     filing_month = config.filing_month
-    current_nqc_worksheet_name = f'{filing_month.year} NQC List'
+    current_nqc_worksheet_name = next(filter(lambda s: re.match(r'^.*{}.*NQC List.*$'.format(filing_month.year),s), nqc_workbook.sheetnames))
     month_columns = [ts(filing_month.year,month,1).to_numpy().astype('datetime64[M]') for month in range(1,13)]
     column_map = {
         'Generator Name' : 'generator_name',

@@ -35,7 +35,7 @@ ezdb_supply_plans_filename: '\\Sf150pyclfs26\PYCLIENTFS\Users\DM4\BigData\EZDB\E
 ezdb_master_lookup_filename: '\\Sf150pyclfs26\PYCLIENTFS\Users\DM4\BigData\EZDB\ED_RA\Data\..\EZDB_ED_RA_MasterLookup.xlsx'
 log_filename: '\\Sf150pyclfs26\PYCLIENTFS\Users\svc_energyRA\ra_filings\data\logs\ra_filings_[yyyy]-[mm].log'
 cli_logging_criticalities: ERROR,WARNING,INFORMATION
-file_logging_criticalities: ERROR,WARNING
+file_logging_criticalities: ERROR,WARNING,INFORMATION
 email_log_filename: '\\Sf150pyclfs26\PYCLIENTFS\Users\svc_energyRA\ra_filings\data\logs\ra_filings_emails.csv'
 attachment_log_filename: '\\Sf150pyclfs26\PYCLIENTFS\Users\svc_energyRA\ra_filings\data\logs\ra_filings_attachments.csv'
 consolidation_log_filename: '\\Sf150pyclfs26\PYCLIENTFS\Users\svc_energyRA\ra_filings\data\logs\ra_filings_consolidation_[yyyy]-[mm].csv'

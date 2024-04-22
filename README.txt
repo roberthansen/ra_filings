@@ -57,12 +57,16 @@ account is independent of staff and is setup such that its password will not
 expire, so the script can run indefinitely across, e.g., personnel changes.
 ENERGY\svc_energyRA is not, accessible through Remote Desktop, but users may
 create interactive sessions in PowerShell through the following command:
+
     runas.exe /profile /user:ENERGY\svc_energyRA "powershell -ExecutionPolicy ByPass"
+ 
 A prompt will request the svc_energyRA password, and upon correct entry, a
 new shell session will start as the ENERGY\svc_energyRA account. From there, the
 user may execute any of the .ps1 scripts in the ra_filings directory using their
 UNC paths:
+
     \\Sf150pyclfs26\PYCLIENTFS\Users\svc_energyRA\ra_filings\DailyRAFilings.ps1
+
 These scripts map the network drive for the svc_energyRA user, activate a conda
 environment, and execute anaconda commands with access to the service account's
 keyring. This procedure is necessary for setting up the anaconda environment and
@@ -97,7 +101,7 @@ parameters that define the python scripts' behavior:
           [yyyy] : four digit year of submittal
           [yy] : last two digits of the year of submittal
           [mmmm] : full name of month of submittal
-          ummm] : three-letter abbreviation for month of submittal
+          [mmm] : three-letter abbreviation for month of submittal
           [mm] : two-digit numeric month of submittal
           [lse_full] : full name of the submitting load serving entity as
               written in the report

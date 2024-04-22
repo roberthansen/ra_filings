@@ -28,7 +28,7 @@ class TextLogger:
     while log targets may accept any combination of on and off, messages must
     have exactly one bit on.
     '''
-    
+
     # class variable to define levels of criticality, used for specifying the
     # criticality of a message:
     criticalities = {

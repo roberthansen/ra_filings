@@ -18,13 +18,17 @@ def ra_filings(configuration_options_path:Path,download:bool=False,organize:bool
     adequacy monthly filing compliance tool. It can be run as a scheduled task
     on a daily basis.
     '''
-    cleared_log = False
+    starttime = ts.now().strftime('%Y-%m-%d %H:%M:%S')
+    starttime_logged = False
+    # cleared_log = False
 
     # download all new attachments from past month of emails in kiteworks:
     if download or notify:
         from kiteworks_api_downloader import AttachmentDownloader
         kw = AttachmentDownloader(configuration_options_path=configuration_options_path,user=kw_user,api_client=kw_api_client,filing_month=filing_month)
-        kw.logger.clear_log()
+        # kw.logger.clear_log()
+        kw.logger.log('AUTOMATION STARTED AT {}'.format(starttime),'INFORMATION')
+        starttime_logged = True
         if download:
             kw.download_current_month()
         else:
@@ -35,8 +39,11 @@ def ra_filings(configuration_options_path:Path,download:bool=False,organize:bool
     # organize downloaded attachments into final report directory:
     org = Organizer(configuration_options_path,filing_month=filing_month)
     if organize:
-        if not cleared_log:
-            org.logger.clear_log
+        # if not cleared_log:
+        #     org.logger.clear_log
+        if not starttime_logged:
+            org.logger.log('AUTOMATION STARTED AT {}'.format(starttime),'INFORMATION')
+            starttime_logged = True
         org.organize()
     else:
         pass
@@ -44,8 +51,11 @@ def ra_filings(configuration_options_path:Path,download:bool=False,organize:bool
     # consolidate data from filings and requirement tables:
     if consolidate:
         cons = WorkbookConsolidator(configuration_options_path,filing_month=filing_month)
-        if not cleared_log:
-            cons.logger.clear_log()
+        # if not cleared_log:
+        #     cons.logger.clear_log()
+        if not starttime_logged:
+            cons.logger.log('AUTOMATION STARTED AT {}'.format(starttime),'INFORMATION')
+            starttime_logged = True
         cons.consolidation_logger.clear_log()
         cons.consolidation_logger.commit()
         ready = cons.check_files()
@@ -78,8 +88,11 @@ def ra_filings(configuration_options_path:Path,download:bool=False,organize:bool
 
     # copy archive files into a compressed zip file:
     if organize or consolidate:
-        if not cleared_log:
-            org.logger.clear_log()
+        # if not cleared_log:
+        #     org.logger.clear_log()
+        if not starttime_logged:
+            org.logger.log('AUTOMATION STARTED AT {}'.format(starttime),'INFORMATION')
+            starttime_logged = True
         org.compress_archive()
         if consolidate and notify:
             kw.send_results(completed)
@@ -88,10 +101,12 @@ def ra_filings(configuration_options_path:Path,download:bool=False,organize:bool
 
     # export input data and results for upload to ezdb:
     if export:
-        data_exporter = DataExporter(configuration_options_path,filing_month=filing_month)
-        data_exporter.write_all()
-        data_exporter.update_master_lookup_table()
-
+        de = DataExporter(configuration_options_path,filing_month=filing_month)
+        if not starttime_logged:
+            de.logger.log('AUTOMATION STARTED AT {}'.format(starttime),'INFORMATION')
+            starttime_logged = True
+        de.write_all()
+        de.update_master_lookup_table()
     else:
         pass
 
@@ -105,7 +120,7 @@ if __name__=='__main__':
     if daily:
         print('running daily ...')
         if (today+td(days=45)).day==1:
-            print('downloading (T-45) ...')
+            print('downloading (T-45)')
             # download only:
             filing_month = (today + td(days=45))
             download = True
@@ -167,7 +182,7 @@ if __name__=='__main__':
 
     if any([download,organize,consolidate,notify,export]):
         ra_filings(
-            Path(r'\\Sf150pyclfs26\PYCLIENTFS\Users\svc_energyRA\ra_filings\config\ra_filings_config.yaml'),
+            Path(r'\\Sf150pyclfs26\PYCLIENTFS\Users\svc_energyRA\ra_filings\config\ra_filings_config_{}.yaml'.format(filing_month.year)),
             download=download,
             organize=organize,
             consolidate=consolidate,

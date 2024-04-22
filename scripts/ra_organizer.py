@@ -7,6 +7,7 @@ import shutil
 import pandas as pd
 from pathlib import Path
 from openpyxl import load_workbook
+from openpyxl.utils.cell import get_column_letter
 from pandas import Timestamp as ts
 from datetime import datetime as dt
 from zipfile import BadZipFile, ZipFile
@@ -62,7 +63,7 @@ class Organizer:
         email_information = emails.loc[(emails.loc[:,'email_id']==attachment.loc['email_id']),:].iloc[0]
         self.logger.log('Validating Attachment: {} ({})'.format(attachment_id,download_path),'INFORMATION')
         if download_path.is_file():
-            if download_path.suffix=='.xlsx':
+            if download_path.suffix in ('.xlsx','.xlsm'):
                 with open(download_path,'rb') as f:
                     in_mem_file = io.BytesIO(f.read())
                     try:
@@ -73,6 +74,7 @@ class Organizer:
                                 'I_Phys_Res_Import_RA_Res',
                                 'III_Demand_Response',
                             ],
+                            'cam_rmr_update' : ['Jun to Dec CAM Update','Diablo Canyon Credits'],
                             'incremental_local' : ['IncrementalLocal'],
                             'year_ahead' : [
                                 'loadforecastinputdata',
@@ -86,7 +88,8 @@ class Organizer:
                                 'CAMRMR',
                                 'monthlytracking',
                             ],
-                            'nqc_list' : r'(\d{4}) NQC List',
+                            'supply_plan': ['Export'],
+                            'nqc_list' : r'(\d{4}).*NQC List',
                         }
                         wb = load_workbook(in_mem_file,data_only=True,read_only=True)
                         # monthly filing:
@@ -138,6 +141,16 @@ class Organizer:
                                 effective_date = self.config.filing_month
                                 set_attachment_value('effective_date',effective_date)
                                 set_attachment_value('organization_id','[LSE Alias Not Recognized]')
+                        # CAM, RMR, and Diablo Canyon credit true-up:
+                        elif all([sheetname in wb.sheetnames for sheetname in sheetnames['cam_rmr_update']]) and email_information.loc['group']=='internal':
+                            set_attachment_value('ra_category','cam_rmr_update')
+                            set_attachment_value('organization_id','CEC')
+                            if re.match(r'.*(\d{4}).*',download_path.name):
+                                effective_date = pd.to_datetime(re.match(r'.*(\d{4}).*',download_path.name).groups()[0]).replace(month=6)
+                                set_attachment_value('effective_date',effective_date)
+                            else:
+                                effective_date = self.config.filing_month.replace(month=6)
+                                set_attachment_value('effective_date',effective_date)
                         # incremental local:
                         elif all([sheetname in wb.sheetnames for sheetname in sheetnames['incremental_local']]) and email_information.loc['group']=='internal':
                             set_attachment_value('ra_category','incremental_local')
@@ -181,16 +194,65 @@ class Organizer:
                             set_attachment_value('ra_category','nqc_list')
                             set_attachment_value('organization_id','CPUC')
                             set_attachment_value('effective_date',effective_date)
+                        # system and flexible supply plans:
+                        elif all(sheetname in wb.sheetnames for sheetname in sheetnames['supply_plan']):
+                            sheet = wb[sheetnames['supply_plan'][0]]
+                            columns = [sheet['{}1'.format(get_column_letter(i+1))].value for i in range(sheet.max_column)]
+                            system_columns = [
+                                r'\s*validation\s*',
+                                r'\s*scid\s*',
+                                r'.*id\s*',
+                                r'\s*local.*',
+                                r'\s*system.*',
+                                r'.*total.*',
+                                r'.*start.*',
+                                r'.*end.*',
+                                r'.*lse.*',
+                                r'\s*errors.*warnings\s*',
+                            ]
+                            local_columns = [
+                                r'\s*validation\s*',
+                                r'\s*supplier\s*',
+                                r'.*id\s*',
+                                r'\s*category\s*',
+                                r'\s*flex.*',
+                                r'.*start.*',
+                                r'.*end.*',
+                                r'\s*lse\s*',
+                                r'\s*errors.*warnings\s*',
+                            ]
+                            effective_date_elements = re.match(r'.*\s(\d{1,2})[_\W](\d{1,2})[_\W](\d{2,4}).*',download_path.name).groups()
+                            if len(effective_date_elements[2])==2:
+                                effective_date = pd.to_datetime(dt.strptime('/'.join(effective_date_elements),'%m/%d/%y'))
+                            else:
+                                effective_date = pd.to_datetime(dt.strptime('/'.join(effective_date_elements),'%m/%d/%Y'))
+                            effective_date = effective_date.replace(effective_date.year+int((effective_date.month+1)/12),(effective_date.month+1)%12+1,1)
+                            if len(columns)>=len(system_columns) and all([re.match(s,columns[i].lower()) for i,s in enumerate(system_columns)]):
+                                set_attachment_value('ra_category','supply_plan_system')
+                                set_attachment_value('effective_date',effective_date)
+                                set_attachment_value('organization_id','CAISO')
+                            elif len(columns)>=len(local_columns) and all([re.match(s,columns[i].lower()) for i,s in enumerate(local_columns)]):
+                                set_attachment_value('ra_category','supply_plan_flexible')
+                                set_attachment_value('effective_date',effective_date)
+                                set_attachment_value('organization_id','CAISO')
+                            else:
+                                self.logger.log('Input Excel File Does Not Match Templates: '.format(download_path),'INFORMATION')
+                                set_attachment_value('ra_category','none')
+                                set_attachment_value('effective_date','NaT')
+                                set_attachment_value('organization_id','n/a')
+                            # system supply plan:
+                            # flexible supply plan:
                         else:
                             set_attachment_value('ra_category','none')
                             set_attachment_value('organization_id','n/a')
                             set_attachment_value('effective_date','NAT')
                         wb.close()
                     except BadZipFile:
-                        self.logger.log('Unable to open xlsx file: {}'.format(download_path),'WARNING')
+                        self.logger.log('Unable to open Excel file: {}'.format(download_path),'WARNING')
                         set_attachment_value('ra_category','none')
                         set_attachment_value('organization_id','n/a')
                         set_attachment_value('effective_date','NAT')
+            # system and flexible supply plans (old format):
             elif download_path.suffix=='.xls' and email_information.loc['group']=='internal':
                 wb = xlrd.open_workbook(download_path)
                 sheet = wb.sheet_by_index(0)
@@ -278,6 +340,7 @@ class Organizer:
                     'attachment_id' : attachment_id,
                     'download_path' : str(path),
                     'ra_category' : 'not_validated',
+                    'organization_id' : '',
                     'effective_date' : '',
                     'archive_path' : '',
                 })
@@ -365,17 +428,18 @@ class Organizer:
             (
                 (
                     (self.attachment_logger.data.loc[:,'ra_category']=='year_ahead') | \
-                    (self.attachment_logger.data.loc[:,'ra_category']=='month_ahead')
+                    (self.attachment_logger.data.loc[:,'ra_category']=='month_ahead') | \
+                    (self.attachment_logger.data.loc[:,'ra_category']=='nqc_list')
                 ) & \
                 (self.attachment_logger.data.loc[:,'effective_date']==filing_month.replace(month=1))
             ) | \
             (
-                (self.attachment_logger.data.loc[:,'ra_category']=='incremental_local') & \
-                (self.attachment_logger.data.loc[:,'effective_date']==filing_month.replace(month=7))
+                (self.attachment_logger.data.loc[:,'ra_category']=='cam_rmr_update') & \
+                (self.attachment_logger.data.loc[:,'effective_date']==filing_month.replace(month=6))
             ) | \
             (
-                (self.attachment_logger.data.loc[:,'ra_category']=='nqc_list') & \
-                (self.attachment_logger.data.loc[:,'effective_date']==filing_month.replace(month=1))
+                (self.attachment_logger.data.loc[:,'ra_category']=='incremental_local') & \
+                (self.attachment_logger.data.loc[:,'effective_date']==filing_month.replace(month=7))
             ),'attachment_id']
         for attachment_id in current_attachment_ids:
             self.copy_rename(attachment_id)

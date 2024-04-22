@@ -78,7 +78,7 @@ class AttachmentDownloader:
             response = self.connection.list_email_in_date_range(start_date,end_date)
         email_list = response.json()['data']
         internal_address_check = re.compile(r'\S*@cpuc\.ca\.gov$')
-        file_type_check = re.compile(r'.*\.(xlsx|xls)$')
+        file_type_check = re.compile(r'.*\.(xlsx|xlsm|xls)$')
         log_str = 'Searching for Emails from {} to {}'
         self.logger.log(
             log_str.format(

@@ -291,16 +291,21 @@ EBCE:
   type: load-serving entity
   aliases:
     - East Bay Community Energy
+    - Ava Community Energy
   default_email: ''
 EIPS:
   scid: LEDF
   pal_id: 942
   type: load-serving entity
   aliases:
+    - EIPS
     - EDF Industrial Power Services (CA), LLC
     - EDF Industrial Power Services, LLC
     - EDF Industrial Power Services LLC
     - EDF Industrial Power Services
+    - BP Energy Retail Company California LLC
+    - BP Energy Retail Company California, LLC
+    - bp Energy Retail Company California LLC f/k/a EIPS
   default_email: 'deborah.merril@edftrading.com'
 HANFORD:
   scid: LHANF
